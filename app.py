@@ -32,6 +32,7 @@ import pandas as pd
 import database
 from ml.agronomy_engine import analyze_crop_prediction, AGRONOMIC_KNOWLEDGE
 from ml.ai_assistant import answer_farming_doubt
+from ml.weather_service import get_weather_for_state, get_weather_by_coords
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "crop-yield-farmer-ai-2026-secret"
@@ -88,8 +89,22 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
-            flash("Please log in or register to use the Crop Yield Predictor.", "error")
+            flash("Please log in or register to access this page.", "error")
             return redirect(url_for("login", next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def admin_required(f):
+    """Decorator to require administrator role for protected routes."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please log in as an administrator.", "error")
+            return redirect(url_for("login", next=request.url))
+        if session.get("user_role") != "admin":
+            flash("Access denied: Administrator privileges are required.", "error")
+            return redirect(url_for("farmer_dashboard"))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -148,15 +163,19 @@ def register():
             phone=phone,
             state=state,
             farm_size_ha=farm_size,
+            role="farmer",
+            status="approved"
         )
 
         session["user_id"] = user_id
         session["user_name"] = name
         session["user_email"] = email
         session["user_state"] = state
+        session["user_role"] = "farmer"
+        session["user_status"] = "approved"
 
-        flash(f"Welcome to CropYield AI, {name}! Your account is now active.", "success")
-        return redirect(url_for("predict_page"))
+        flash(f"Welcome to CropYield AI, {name}! Your farmer dashboard is now ready.", "success")
+        return redirect(url_for("farmer_dashboard"))
 
     states = model_metadata.get("options", {}).get("states", ALL_INDIAN_STATES)
     return render_template("register.html", states=states)
@@ -164,7 +183,7 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Farmer Login."""
+    """Farmer & Administrator Login."""
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -179,13 +198,25 @@ def login():
             flash("Invalid email or password. Please try again.", "error")
             return render_template("login.html")
 
+        if user.get("status") == "suspended":
+            flash("Your account has been suspended by the administrator. Please contact support.", "error")
+            return render_template("login.html")
+
         session["user_id"] = user["id"]
         session["user_name"] = user["name"]
         session["user_email"] = user["email"]
         session["user_state"] = user["state"]
+        session["user_role"] = user.get("role", "farmer")
+        session["user_status"] = user.get("status", "approved")
 
         flash(f"Welcome back, {user['name']}!", "success")
-        return redirect(next_url or url_for("predict_page"))
+
+        if next_url:
+            return redirect(next_url)
+        elif session["user_role"] == "admin":
+            return redirect(url_for("admin_dashboard"))
+        else:
+            return redirect(url_for("farmer_dashboard"))
 
     return render_template("login.html")
 
@@ -213,16 +244,42 @@ def api_chat():
     """AI Assistant NLP Chat Endpoint."""
     data = request.get_json(silent=True) or request.form.to_dict()
     message = data.get("message", "").strip() if data else ""
+    history = data.get("history", []) if data else []
     if not message:
         return jsonify({"success": False, "error": "Message cannot be empty."}), 400
 
     user_name = session.get("user_name", "Farmer")
-    res = answer_farming_doubt(message, user_name=user_name)
+    res = answer_farming_doubt(message, user_name=user_name, history=history)
     return jsonify({
         "success": True,
         "reply": res["reply"],
         "suggestions": res.get("suggestions", [])
     })
+
+
+@app.route("/api/weather", methods=["GET", "POST"])
+def api_weather():
+    """Automated State & GPS Weather Integration Endpoint."""
+    data = request.get_json(silent=True) or request.args.to_dict() or {}
+    state = data.get("state", "").strip()
+    season = data.get("season", "").strip()
+    lat = data.get("lat")
+    lon = data.get("lon")
+
+    # If GPS latitude and longitude provided
+    if lat is not None and lon is not None:
+        try:
+            res = get_weather_by_coords(float(lat), float(lon), season=season)
+            return jsonify(res)
+        except Exception as e:
+            pass
+
+    # Default to Punjab if no state specified
+    if not state:
+        state = "Punjab"
+
+    res = get_weather_for_state(state, season=season)
+    return jsonify(res)
 
 
 @app.route("/predict", methods=["GET", "POST"])
@@ -267,6 +324,137 @@ def dashboard_page():
         crops=crops,
         metrics=metrics,
     )
+
+
+# ---------------- FARMER DASHBOARD ROUTES ---------------- #
+
+@app.route("/farmer/dashboard")
+@login_required
+def farmer_dashboard():
+    """Personalized Farmer Portal and Field History."""
+    user_id = session.get("user_id")
+    user = database.get_user_by_id(user_id)
+    if not user:
+        session.clear()
+        flash("User session expired. Please log in again.", "info")
+        return redirect(url_for("login"))
+
+    farmer_stats = database.get_farmer_dashboard_stats(user_id)
+    history = database.get_history(limit=50, user_id=user_id)
+    states = model_metadata.get("options", {}).get("states", ALL_INDIAN_STATES)
+
+    return render_template(
+        "farmer_dashboard.html",
+        user=user,
+        stats=farmer_stats,
+        history=history,
+        states=states,
+    )
+
+
+@app.route("/farmer/update-profile", methods=["POST"])
+@login_required
+def farmer_update_profile():
+    """Update farmer personal and farm details."""
+    user_id = session.get("user_id")
+    name = request.form.get("name", "").strip()
+    phone = request.form.get("phone", "").strip()
+    state = request.form.get("state", "").strip()
+    farm_size = request.form.get("farm_size", "1.0")
+
+    if not name:
+        flash("Farmer name cannot be empty.", "error")
+        return redirect(url_for("farmer_dashboard"))
+
+    try:
+        farm_size_val = float(farm_size)
+    except (ValueError, TypeError):
+        farm_size_val = 1.0
+
+    database.update_user_profile(user_id, name, phone, state, farm_size_val)
+    session["user_name"] = name
+    session["user_state"] = state
+    flash("Your farmer profile and land details have been updated successfully!", "success")
+    return redirect(url_for("farmer_dashboard"))
+
+
+# ---------------- ADMIN DASHBOARD ROUTES ---------------- #
+
+@app.route("/admin/dashboard")
+@admin_required
+def admin_dashboard():
+    """Administrator Management Control Center and User Permission Console."""
+    search = request.args.get("search", "").strip() or None
+    role_filter = request.args.get("role", "").strip() or None
+    status_filter = request.args.get("status", "").strip() or None
+
+    admin_stats = database.get_admin_dashboard_stats()
+    users = database.get_all_users(search=search, role_filter=role_filter, status_filter=status_filter)
+    recent_predictions = database.get_history(limit=50)
+
+    return render_template(
+        "admin_dashboard.html",
+        admin_stats=admin_stats,
+        users=users,
+        predictions=recent_predictions,
+        search=search or "",
+        role_filter=role_filter or "all",
+        status_filter=status_filter or "all",
+    )
+
+
+@app.route("/admin/user/<int:user_id>/permission", methods=["POST"])
+@admin_required
+def admin_update_permission(user_id):
+    """Admin action: Grant/change user permission status or promote/demote role."""
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    status = data.get("status")
+    role = data.get("role")
+
+    target_user = database.get_user_by_id(user_id)
+    if not target_user:
+        if request.is_json:
+            return jsonify({"success": False, "error": "User not found."}), 404
+        flash("User not found.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    database.update_user_permission(user_id, status=status, role=role)
+    status_label = status or target_user["status"]
+    role_label = role or target_user["role"]
+
+    if request.is_json:
+        return jsonify({
+            "success": True,
+            "message": f"Permissions updated for {target_user['name']}: Status set to '{status_label}', Role set to '{role_label}'."
+        })
+
+    flash(f"Permissions updated for {target_user['name']} (Status: {status_label}, Role: {role_label}).", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/user/<int:user_id>/delete", methods=["POST", "DELETE"])
+@admin_required
+def admin_delete_user(user_id):
+    """Admin action: Delete user account and associated records."""
+    if user_id == session.get("user_id"):
+        if request.is_json:
+            return jsonify({"success": False, "error": "Cannot delete your currently active administrator account."}), 400
+        flash("You cannot delete your own administrator account.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    target_user = database.get_user_by_id(user_id)
+    if target_user:
+        database.delete_user(user_id)
+        msg = f"User '{target_user['name']}' (#{user_id}) has been removed from the platform."
+    else:
+        msg = f"User #{user_id} removed."
+
+    if request.is_json or request.method == "DELETE":
+        return jsonify({"success": True, "message": msg})
+
+    flash(msg, "info")
+    return redirect(url_for("admin_dashboard"))
+
 
 
 @app.route("/about")
@@ -396,7 +584,7 @@ def api_predict():
         predicted_yield = max(0.1, round(raw_prediction, 2))
         total_production = round(predicted_yield * area_ha, 2)
 
-        # Generate Agronomic Analysis and Advisory
+        # Generate Agronomic Analysis and Advisory with State & Data Crop Suggestion
         agri_analysis = analyze_crop_prediction(
             crop=crop,
             season=season,
@@ -406,6 +594,8 @@ def api_predict():
             fertilizer=fertilizer_kg,
             predicted_yield=predicted_yield,
             area=area_ha,
+            state=state,
+            ml_model=ml_model,
         )
 
         # Save to SQLite Database
@@ -437,8 +627,8 @@ def api_predict():
             "total_production_tonnes": total_production,
             "prediction_id": saved_id,
             "analysis": agri_analysis,
+            "suggested_alternative_crop": agri_analysis.get("suggested_alternative_crop"),
         })
-
     except Exception as e:
         return jsonify({"success": False, "error": f"Prediction failed: {str(e)}"}), 500
 

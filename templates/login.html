@@ -45,6 +45,28 @@
       Don't have an account yet? <br>
       <a href="{{ url_for('register') }}" style="font-weight: 700; color: var(--primary-dark);">Register as a New Farmer &rarr;</a>
     </div>
+
+    <!-- Quick-Fill Credentials Helper -->
+    <div style="margin-top: 22px; padding: 14px; background: #f8fafc; border-radius: var(--radius-md); border: 1px dashed #cbd5e1; font-size: 0.82rem;">
+      <div style="font-weight: 700; color: #334155; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+        <span>⚡ Quick Test Logins:</span>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" onclick="fillLogin('admin@cropyield.ai', 'admin123')" class="btn btn-sm btn-outline" style="font-size: 0.76rem; padding: 4px 10px; border-color: #fde68a; color: #b45309; background: #fffbeb;">
+          👑 Fill Admin Login (admin123)
+        </button>
+        <button type="button" onclick="fillLogin('testfarmer@agriculture.gov.in', 'securefarmerpassword123')" class="btn btn-sm btn-outline" style="font-size: 0.76rem; padding: 4px 10px; border-color: #bbf7d0; color: #15803d; background: #f0fdf4;">
+          👨‍🌾 Fill Farmer Login
+        </button>
+      </div>
+    </div>
   </div>
 </div>
+
+<script>
+function fillLogin(email, pass) {
+  document.getElementById('email').value = email;
+  document.getElementById('password').value = pass;
+}
+</script>
 {% endblock %}

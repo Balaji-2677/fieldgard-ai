@@ -184,6 +184,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cropEl) cropEl.value = cropParam;
   }
 
+  // State & Season change: Auto-fetch weather data
+  const stateSelect = document.getElementById("state");
+  const seasonSelect = document.getElementById("season");
+
+  if (stateSelect) {
+    stateSelect.addEventListener("change", () => {
+      fetchWeatherForSelection();
+    });
+  }
+
+  if (seasonSelect) {
+    seasonSelect.addEventListener("change", () => {
+      if (stateSelect && stateSelect.value) {
+        fetchWeatherForSelection();
+      }
+    });
+  }
+
   // Form Submission
   if (form) {
     form.addEventListener("submit", async (e) => {
@@ -192,6 +210,148 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+/**
+ * Automatically fetches and populates live & seasonal weather for selected State and Season
+ */
+async function fetchWeatherForSelection(stateOverride, seasonOverride) {
+  const stateEl = document.getElementById("state");
+  const seasonEl = document.getElementById("season");
+  const rainEl = document.getElementById("rainfall");
+  const tempEl = document.getElementById("temperature");
+  const syncBanner = document.getElementById("weather-sync-banner");
+  const syncTitle = document.getElementById("weather-sync-title");
+  const syncDesc = document.getElementById("weather-sync-desc");
+  const syncIcon = document.getElementById("weather-sync-icon");
+  const statusText = document.getElementById("weather-status-text");
+  const rainBadge = document.getElementById("rain-auto-badge");
+  const tempBadge = document.getElementById("temp-auto-badge");
+
+  const state = stateOverride || (stateEl ? stateEl.value : "");
+  const season = seasonOverride || (seasonEl ? seasonEl.value : "");
+
+  if (!state) return;
+
+  // Show syncing status
+  if (statusText) statusText.textContent = "Syncing Weather...";
+  if (syncDesc) syncDesc.textContent = `Connecting to satellite weather service for ${state}...`;
+
+  try {
+    const res = await fetch("/api/weather", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state: state, season: season })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      // Auto-populate rainfall and temperature
+      if (rainEl) {
+        rainEl.value = data.rainfall_mm;
+      }
+      if (tempEl) {
+        tempEl.value = data.temperature_c;
+      }
+
+      // Show auto-filled badges
+      if (rainBadge) rainBadge.style.display = "inline-block";
+      if (tempBadge) tempBadge.style.display = "inline-block";
+
+      // Update Weather Card
+      if (syncBanner) syncBanner.classList.add("synced");
+      if (syncIcon) syncIcon.textContent = data.icon || "🌤️";
+      if (syncTitle) syncTitle.textContent = `Synced Weather for ${data.state} (${data.season || "Annual"})`;
+      if (syncDesc) {
+        syncDesc.innerHTML = `Auto-populated: <strong>${data.temperature_c}°C</strong> ambient temperature & <strong>${data.rainfall_mm} mm</strong> seasonal rainfall. Humidity: ${data.humidity_percent}%. Condition: <em>${data.condition}</em>.`;
+      }
+      if (statusText) statusText.textContent = "Live Weather Synced";
+
+      showToast(`🌤️ Weather auto-synced for ${data.state}: ${data.temperature_c}°C & ${data.rainfall_mm} mm rain!`, "success");
+    }
+  } catch (err) {
+    console.error("Error fetching weather:", err);
+    if (statusText) statusText.textContent = "Offline Normals Ready";
+  }
+}
+
+/**
+ * Auto-detects farmer's location via GPS and fetches hyper-local weather
+ */
+async function detectGPSWeather() {
+  const gpsBtn = document.getElementById("btn-detect-gps");
+  if (!navigator.geolocation) {
+    showToast("Geolocation is not supported by your browser. Please select state from dropdown.", "error");
+    return;
+  }
+
+  if (gpsBtn) {
+    gpsBtn.classList.add("loading");
+    gpsBtn.textContent = "📍 Detecting...";
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      const seasonEl = document.getElementById("season");
+      const season = seasonEl ? seasonEl.value : "";
+
+      try {
+        const res = await fetch("/api/weather", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lat: lat, lon: lon, season: season })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          // Select detected state in dropdown
+          const stateEl = document.getElementById("state");
+          if (stateEl && data.nearest_state) {
+            stateEl.value = data.nearest_state;
+          }
+
+          // Populate weather
+          document.getElementById("rainfall").value = data.rainfall_mm;
+          document.getElementById("temperature").value = data.temperature_c;
+
+          // Badges
+          const rainBadge = document.getElementById("rain-auto-badge");
+          const tempBadge = document.getElementById("temp-auto-badge");
+          if (rainBadge) rainBadge.style.display = "inline-block";
+          if (tempBadge) tempBadge.style.display = "inline-block";
+
+          // Card
+          const syncBanner = document.getElementById("weather-sync-banner");
+          if (syncBanner) syncBanner.classList.add("synced");
+          document.getElementById("weather-sync-icon").textContent = data.icon || "🌤️";
+          document.getElementById("weather-sync-title").textContent = `GPS Detected: ${data.nearest_state}`;
+          document.getElementById("weather-sync-desc").innerHTML = `Coordinates (${lat.toFixed(2)}°, ${lon.toFixed(2)}°): <strong>${data.temperature_c}°C</strong> & <strong>${data.rainfall_mm} mm</strong> rainfall. Humidity: ${data.humidity_percent}%.`;
+          document.getElementById("weather-status-text").textContent = "GPS Weather Synced";
+
+          showToast(`📍 GPS Location detected near ${data.nearest_state}! Weather auto-synced.`, "success");
+        }
+      } catch (err) {
+        console.error("GPS Weather Error:", err);
+        showToast("Could not fetch weather for GPS coordinates.", "error");
+      } finally {
+        if (gpsBtn) {
+          gpsBtn.classList.remove("loading");
+          gpsBtn.textContent = "📍 Detect Location";
+        }
+      }
+    },
+    (err) => {
+      console.warn("Geolocation denied or error:", err);
+      if (gpsBtn) {
+        gpsBtn.classList.remove("loading");
+        gpsBtn.textContent = "📍 Detect Location";
+      }
+      showToast("Location access was not granted. Please select your State from the dropdown to auto-sync weather.", "info");
+    },
+    { timeout: 10000 }
+  );
+}
 
 function applyPreset(preset) {
   document.getElementById("farmer_name").value = preset.farmer_name || "";
@@ -212,6 +372,24 @@ function applyPreset(preset) {
   document.getElementById("fertilizer").value = preset.fertilizer_kg;
   document.getElementById("pesticide").value = preset.pesticide_kg;
   document.getElementById("notes").value = preset.notes || "";
+
+  // Update weather sync status
+  const syncBanner = document.getElementById("weather-sync-banner");
+  if (syncBanner) {
+    syncBanner.classList.add("synced");
+    const syncIcon = document.getElementById("weather-sync-icon");
+    const syncTitle = document.getElementById("weather-sync-title");
+    const syncDesc = document.getElementById("weather-sync-desc");
+    const statusText = document.getElementById("weather-status-text");
+    if (syncIcon) syncIcon.textContent = "🌤️";
+    if (syncTitle) syncTitle.textContent = `Preset Weather for ${preset.state} (${preset.season})`;
+    if (syncDesc) syncDesc.innerHTML = `Loaded: <strong>${preset.temp_c}°C</strong> ambient temperature & <strong>${preset.rainfall_mm} mm</strong> seasonal rainfall.`;
+    if (statusText) statusText.textContent = "Preset Synced";
+  }
+  const rainBadge = document.getElementById("rain-auto-badge");
+  const tempBadge = document.getElementById("temp-auto-badge");
+  if (rainBadge) rainBadge.style.display = "inline-block";
+  if (tempBadge) tempBadge.style.display = "inline-block";
 }
 
 async function handlePredictionSubmit() {
@@ -376,6 +554,8 @@ function renderPredictionResult(analysis, inputData) {
           </div>
         </div>
 
+        ${renderCropSuggestionHtml(analysis.suggested_alternative_crop, analysis, inputData)}
+
         <div style="margin-bottom: 16px; font-size: 0.9rem; color: #374151;">
           <strong>Farm Summary:</strong> ${analysis.summary}
         </div>
@@ -408,3 +588,74 @@ function renderPredictionResult(analysis, inputData) {
     </div>
   `;
 }
+
+function renderCropSuggestionHtml(sug, analysis, inputData) {
+  if (!sug) return "";
+
+  const gainText = sug.yield_diff_percent > 0
+    ? `+${sug.yield_diff_percent}% Yield Gain`
+    : `Higher Regional Fit`;
+
+  return `
+    <div class="crop-suggestion-card" style="margin-bottom: 20px; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: var(--radius-md); padding: 18px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 1.3rem;">💡</span>
+          <span style="font-size: 0.8rem; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">
+            Yield Optimization Suggestion for ${inputData.state}
+          </span>
+        </div>
+        <span style="background: #15803d; color: #fff; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: var(--radius-full);">
+          ${gainText}
+        </span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+        <div style="font-size: 2.2rem; line-height: 1;">${sug.icon}</div>
+        <div>
+          <h4 style="font-size: 1.15rem; font-weight: 800; color: #78350f; margin: 0;">
+            Recommend Switching to <span style="color: #166534; text-decoration: underline;">${sug.crop}</span>
+          </h4>
+          <div style="font-size: 0.82rem; color: #92400e;">
+            Expected harvest: <strong>${sug.expected_yield_t_ha} tonnes/ha</strong> (vs current ${analysis.predicted_yield_t_ha} t/ha for ${analysis.crop})
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size: 0.88rem; color: #451a03; line-height: 1.5; margin-bottom: 14px; background: rgba(255,255,255,0.7); padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid #fde68a;">
+        ${sug.reason}
+      </p>
+
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;">
+        <span style="background: #fff; border: 1px solid #fde68a; color: #78350f; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 12px;">📍 ${sug.why_state}</span>
+        <span style="background: #fff; border: 1px solid #fde68a; color: #78350f; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 12px;">🌱 ${sug.why_soil}</span>
+        <span style="background: #fff; border: 1px solid #fde68a; color: #78350f; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 12px;">🌦️ ${sug.why_climate}</span>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-sm" onclick="switchToSuggestedCrop('${sug.crop}')" style="width: 100%; font-weight: 700; background: #15803d; border-color: #166534; padding: 9px; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 6px rgba(21, 128, 61, 0.3);">
+        <span>🔄</span> Switch Crop to ${sug.crop} & Simulate Forecast (${sug.expected_yield_t_ha} t/ha)
+      </button>
+    </div>
+  `;
+}
+
+function switchToSuggestedCrop(cropName) {
+  const cropSelect = document.getElementById("crop");
+  if (cropSelect) {
+    cropSelect.value = cropName;
+    cropSelect.style.borderColor = "#22c55e";
+    cropSelect.style.boxShadow = "0 0 0 4px rgba(34, 197, 94, 0.3)";
+    setTimeout(() => {
+      cropSelect.style.borderColor = "";
+      cropSelect.style.boxShadow = "";
+    }, 2000);
+
+    showToast(`🔄 Switched crop to ${cropName}! Recalculating forecast...`, "success");
+
+    // Automatically trigger prediction submit with the new crop
+    setTimeout(() => {
+      handlePredictionSubmit();
+    }, 350);
+  }
+}
+

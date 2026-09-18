@@ -21,7 +21,9 @@ class TestCropYieldApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         database.init_db()
-        cls.client = flask_app.app.test_client()
+
+    def setUp(self):
+        self.client = flask_app.app.test_client()
 
     def test_database_operations(self):
         """Test database insertion, retrieval, and stats calculation."""
@@ -283,7 +285,221 @@ class TestCropYieldApp(unittest.TestCase):
             self.assertGreater(data["predicted_yield_t_ha"], 0)
             print(f"   [State/Crop Test Passed] {state} • {crop} -> {data['predicted_yield_t_ha']} t/ha")
 
+    def test_weather_integration(self):
+        """Test Automated State & GPS Weather Integration endpoint."""
+        # 1. Test by State & Season (Punjab Rabi)
+        res = self.client.post("/api/weather", data=json.dumps({
+            "state": "Punjab",
+            "season": "Rabi"
+        }), content_type="application/json")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("state"), "Punjab")
+        self.assertIn("temperature_c", data)
+        self.assertIn("rainfall_mm", data)
+        self.assertGreater(data["temperature_c"], 0)
+        self.assertGreater(data["rainfall_mm"], 0)
+        print(f"\n   [Weather Test Passed] Punjab (Rabi) -> {data['temperature_c']}°C, {data['rainfall_mm']} mm rain")
+
+        # 2. Test by State & Season (Maharashtra Kharif)
+        res_mh = self.client.post("/api/weather", data=json.dumps({
+            "state": "Maharashtra",
+            "season": "Kharif"
+        }), content_type="application/json")
+        self.assertEqual(res_mh.status_code, 200)
+        data_mh = res_mh.get_json()
+        self.assertTrue(data_mh.get("success"))
+        self.assertEqual(data_mh.get("state"), "Maharashtra")
+        print(f"   [Weather Test Passed] Maharashtra (Kharif) -> {data_mh['temperature_c']}°C, {data_mh['rainfall_mm']} mm rain")
+
+        # 3. Test by GPS Coordinates (Bengaluru lat 12.97, lon 77.59)
+        res_gps = self.client.post("/api/weather", data=json.dumps({
+            "lat": 12.97,
+            "lon": 77.59
+        }), content_type="application/json")
+        self.assertEqual(res_gps.status_code, 200)
+        data_gps = res_gps.get_json()
+        self.assertTrue(data_gps.get("success"))
+        self.assertEqual(data_gps.get("nearest_state"), "Karnataka")
+        print(f"   [Weather Test Passed] GPS (12.97, 77.59) -> Nearest State: {data_gps['nearest_state']}")
+
+    def test_admin_and_farmer_dashboards_and_permissions(self):
+        """Test Admin Dashboard, Farmer Dashboard, and User Permission Management."""
+        # 1. Test Admin Login with default seeded credentials
+        login_res = self.client.post("/login", data={
+            "email": "admin@cropyield.ai",
+            "password": "admin123"
+        }, follow_redirects=False)
+        self.assertEqual(login_res.status_code, 302)
+        self.assertIn("/admin/dashboard", login_res.headers.get("Location", ""))
+
+        # 2. Test Admin Dashboard Access
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 1
+            sess["user_name"] = "Master Administrator"
+            sess["user_role"] = "admin"
+            sess["user_status"] = "approved"
+
+        admin_res = self.client.get("/admin/dashboard")
+        self.assertEqual(admin_res.status_code, 200)
+        self.assertIn(b"System Administration & Permissions", admin_res.data)
+        print("\n   [Admin Test Passed] Admin login and dashboard access verified.")
+
+        # 3. Test Farmer restricted from Admin Dashboard
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 2
+            sess["user_name"] = "Test Farmer"
+            sess["user_role"] = "farmer"
+            sess["user_status"] = "approved"
+
+        unauth_admin_res = self.client.get("/admin/dashboard")
+        self.assertEqual(unauth_admin_res.status_code, 302)
+        self.assertIn("/farmer/dashboard", unauth_admin_res.headers.get("Location", ""))
+        print("   [RBAC Test Passed] Non-admin user correctly blocked from Admin Dashboard.")
+
+        # 4. Create a test farmer user with 'pending' status to test Admin Permission Granting
+        test_farmer_id = database.create_user(
+            name="Ravi Verification Test",
+            email="ravi_verify@farmer.in",
+            password_hash="fakehash123",
+            phone="9876500000",
+            state="Haryana",
+            farm_size_ha=3.0,
+            role="farmer",
+            status="pending"
+        )
+        created_farmer = database.get_user_by_id(test_farmer_id)
+        self.assertEqual(created_farmer["status"], "pending")
+
+        # 5. Admin grants permission: Set status to 'approved'
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 1
+            sess["user_role"] = "admin"
+
+        perm_res = self.client.post(
+            f"/admin/user/{test_farmer_id}/permission",
+            data=json.dumps({"status": "approved", "role": "farmer"}),
+            content_type="application/json"
+        )
+        self.assertEqual(perm_res.status_code, 200)
+        updated_farmer = database.get_user_by_id(test_farmer_id)
+        self.assertEqual(updated_farmer["status"], "approved")
+        print("   [Permission Test Passed] Admin successfully granted permission (status -> approved).")
+
+        # 6. Test Farmer Dashboard Access & Personal Profile Updates
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = test_farmer_id
+            sess["user_name"] = "Ravi Verification Test"
+            sess["user_role"] = "farmer"
+            sess["user_status"] = "approved"
+
+        farmer_dash_res = self.client.get("/farmer/dashboard")
+        self.assertEqual(farmer_dash_res.status_code, 200)
+        self.assertIn(b"Ravi Verification Test", farmer_dash_res.data)
+
+        # Farmer updates profile
+        update_res = self.client.post("/farmer/update-profile", data={
+            "name": "Ravi Kumar Farmer",
+            "phone": "9998887776",
+            "state": "Haryana",
+            "farm_size": "4.5"
+        }, follow_redirects=True)
+        self.assertEqual(update_res.status_code, 200)
+        farmer_profile = database.get_user_by_id(test_farmer_id)
+        self.assertEqual(farmer_profile["name"], "Ravi Kumar Farmer")
+        self.assertEqual(farmer_profile["farm_size_ha"], 4.5)
+        print("   [Farmer Dashboard Test Passed] Farmer profile update verified.")
+
+        # 7. Admin deletes test user
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 1
+            sess["user_role"] = "admin"
+
+        del_res = self.client.post(f"/admin/user/{test_farmer_id}/delete")
+        self.assertEqual(del_res.status_code, 302)
+        self.assertIsNone(database.get_user_by_id(test_farmer_id))
+        print("   [User Deletion Test Passed] Admin user removal verified.")
+
+    def test_crop_recommendation_on_low_yield(self):
+        """Test intelligent alternative crop recommendation when predicted yield is low."""
+        # 1. Test low yield scenario in Rajasthan (Semi-arid conditions with low rainfall)
+        payload = {
+            "crop": "Rice",
+            "state": "Rajasthan",
+            "season": "Rabi",
+            "soil_type": "Sandy Loam",
+            "area_ha": 2.0,
+            "rainfall_mm": 250,
+            "temp_c": 18.0,
+            "fertilizer_kg": 80,
+            "pesticide_kg": 1.0
+        }
+        res = self.client.post("/api/predict", data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+
+        analysis = data.get("analysis", {})
+        sug = analysis.get("suggested_alternative_crop")
+        self.assertIsNotNone(sug, "Alternative crop should be suggested for low yield in Rajasthan")
+        self.assertIn("crop", sug)
+        self.assertIn("expected_yield_t_ha", sug)
+        self.assertIn("reason", sug)
+        self.assertGreater(sug["expected_yield_t_ha"], 0)
+        print(f"\n   [Crop Suggestion Test Passed] Low yield Rice in Rajasthan -> Recommended '{sug['crop']}' ({sug['expected_yield_t_ha']} t/ha)")
+
+        # 2. Test low yield scenario in Punjab (unsuitable spice in northern plains)
+        payload_punjab = {
+            "crop": "Cardamom",
+            "state": "Punjab",
+            "season": "Rabi",
+            "soil_type": "Alluvial",
+            "area_ha": 2.0,
+            "rainfall_mm": 450,
+            "temp_c": 18.0,
+            "fertilizer_kg": 120,
+            "pesticide_kg": 1.5
+        }
+        res_pb = self.client.post("/api/predict", data=json.dumps(payload_punjab), content_type="application/json")
+        self.assertEqual(res_pb.status_code, 200)
+        data_pb = res_pb.get_json()
+        sug_pb = data_pb.get("analysis", {}).get("suggested_alternative_crop")
+        self.assertIsNotNone(sug_pb)
+        self.assertGreater(sug_pb["expected_yield_t_ha"], data_pb["predicted_yield_t_ha"])
+        print(f"   [Crop Suggestion Test Passed] Low yield Cardamom in Punjab -> Recommended '{sug_pb['crop']}' ({sug_pb['expected_yield_t_ha']} t/ha)")
+
+    def test_automatic_50_predictions_limit(self):
+        """Test that database automatically retains only the latest 50 predictions and prunes remaining."""
+        conn = database.get_connection()
+        cursor = conn.cursor()
+
+        # Add 10 dummy predictions
+        for i in range(10):
+            database.save_prediction({
+                "farmer_name": f"Cap Test Farmer {i}",
+                "state": "Punjab",
+                "crop": "Wheat",
+                "season": "Rabi",
+                "soil_type": "Alluvial",
+                "area_ha": 2.0,
+                "rainfall_mm": 500,
+                "temp_c": 20.0,
+                "fertilizer_kg": 120,
+                "pesticide_kg": 1.5,
+                "predicted_yield_t_ha": 3.5,
+                "total_production_tonnes": 7.0,
+                "yield_status": "Optimal / High Yield"
+            })
+
+        count = cursor.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
+        self.assertLessEqual(count, 50, f"Predictions table count should not exceed 50, got {count}")
+        self.assertEqual(count, 50, "Predictions table should be capped exactly at 50")
+        conn.close()
+        print(f"   [50-Limit Test Passed] Automatic history cap verified: Database strictly maintains {count} records.")
+
 
 if __name__ == "__main__":
-    print("🌾 Running Crop Yield Application Test Suite (Including Auth & Kisan AI)...")
+    print("🌾 Running Crop Yield Application Test Suite (Including Dashboards & Permissions)...")
     unittest.main()
+

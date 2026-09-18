@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard & User Permissions - CropYield AI{% endblock %}
+
+{% block content %}
+<div class="container" style="margin-top: 30px; margin-bottom: 60px;">
+
+  <!-- Admin Header -->
+  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: var(--radius-lg); padding: 30px; color: #fff; margin-bottom: 30px; box-shadow: var(--shadow-md);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+          <span style="font-size: 2rem;">👑</span>
+          <h1 style="font-size: 2.2rem; font-weight: 800; margin: 0; color: #f8fafc;">
+            System Administration & Permissions
+          </h1>
+          <span class="badge-role-admin" style="font-size: 0.8rem; padding: 4px 10px; border-radius: var(--radius-full); background: #f59e0b; color: #000; font-weight: 700;">
+            Master Console
+          </span>
+        </div>
+        <p style="color: #94a3b8; font-size: 1.02rem; margin: 0;">
+          Manage registered farmer accounts, grant/revoke user access permissions, and audit platform-wide yield predictions across India.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="{{ url_for('api_export_csv') }}" class="btn btn-warning btn-sm" style="font-weight: 700; color: #0f172a;">
+          📥 Export All Data (CSV)
+        </a>
+        <a href="{{ url_for('dashboard_page') }}" class="btn btn-outline btn-sm" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: #fff;">
+          📊 Pan-India Analytics
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin KPI Overview Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 30px;">
+    <div class="card" style="padding: 20px; border-top: 4px solid #3b82f6;">
+      <div style="font-size: 0.82rem; color: var(--gray-medium);">Total Registered Users</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: #1e293b;">{{ admin_stats.total_users }}</div>
+      <div style="font-size: 0.72rem; color: var(--gray-medium); margin-top: 4px;">{{ admin_stats.total_farmers }} farmers, {{ admin_stats.total_admins }} admins</div>
+    </div>
+
+    <div class="card" style="padding: 20px; border-top: 4px solid #10b981;">
+      <div style="font-size: 0.82rem; color: var(--gray-medium);">Approved / Active Users</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: #10b981;">{{ admin_stats.approved_users }}</div>
+      <div style="font-size: 0.72rem; color: var(--gray-medium); margin-top: 4px;">Full predictor & advisory access</div>
+    </div>
+
+    <div class="card" style="padding: 20px; border-top: 4px solid #f59e0b;">
+      <div style="font-size: 0.82rem; color: var(--gray-medium);">Pending Review / Permissions</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: #f59e0b;">{{ admin_stats.pending_users }}</div>
+      <div style="font-size: 0.72rem; color: var(--gray-medium); margin-top: 4px;">Awaiting administrator approval</div>
+    </div>
+
+    <div class="card" style="padding: 20px; border-top: 4px solid #8b5cf6;">
+      <div style="font-size: 0.82rem; color: var(--gray-medium);">Total System Predictions</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: #8b5cf6;">{{ admin_stats.total_predictions }}</div>
+      <div style="font-size: 0.72rem; color: var(--gray-medium); margin-top: 4px;">Across {{ admin_stats.active_states }} Indian states</div>
+    </div>
+  </div>
+
+  <!-- Section 1: User & Farmer Permission Management Console -->
+  <div class="table-card" style="margin-bottom: 36px;">
+    <div class="table-toolbar" style="flex-wrap: wrap; gap: 14px;">
+      <div>
+        <div style="font-weight: 800; font-size: 1.25rem; color: var(--dark); display: flex; align-items: center; gap: 8px;">
+          <span>👥</span> User Accounts & Permission Management
+        </div>
+        <div style="font-size: 0.82rem; color: var(--gray-medium); margin-top: 2px;">
+          Grant approval permissions, promote roles, or suspend access for any farmer or staff member.
+        </div>
+      </div>
+
+      <!-- Filters & Search Form -->
+      <form method="GET" action="{{ url_for('admin_dashboard') }}" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <input type="text" name="search" value="{{ search }}" placeholder="Search name, email, state..." class="form-control" style="font-size: 0.85rem; padding: 6px 12px; width: 220px;">
+        
+        <select name="role" class="form-control" style="font-size: 0.85rem; padding: 6px 10px; width: auto;">
+          <option value="all" {% if role_filter == 'all' %}selected{% endif %}>All Roles</option>
+          <option value="farmer" {% if role_filter == 'farmer' %}selected{% endif %}>Farmers Only</option>
+          <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admins Only</option>
+        </select>
+
+        <select name="status" class="form-control" style="font-size: 0.85rem; padding: 6px 10px; width: auto;">
+          <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+          <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+          <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+          <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended</option>
+        </select>
+
+        <button type="submit" class="btn btn-primary btn-sm" style="padding: 6px 14px;">Filter</button>
+        {% if search or role_filter != 'all' or status_filter != 'all' %}
+          <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline btn-sm" style="padding: 6px 10px;">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>User ID & Joined</th>
+            <th>Farmer Details</th>
+            <th>Contact & State</th>
+            <th>Land Area</th>
+            <th>Role</th>
+            <th>Permission Status</th>
+            <th>Predictions</th>
+            <th style="min-width: 220px; text-align: center;">Admin Permission Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr id="user-row-{{ u.id }}">
+            <td>
+              <div style="font-weight: 700; color: var(--dark);">#{{ u.id }}</div>
+              <div style="font-size: 0.75rem; color: var(--gray-medium);">{{ u.created_at[:10] }}</div>
+            </td>
+            <td>
+              <div style="font-weight: 700; color: var(--dark);">{{ u.name }}</div>
+              <div style="font-size: 0.78rem; color: var(--gray-medium); font-family: monospace;">{{ u.email }}</div>
+            </td>
+            <td>
+              <div style="font-size: 0.85rem;">{{ u.phone or 'No phone' }}</div>
+              <div style="font-size: 0.78rem; color: var(--gray-medium);">📍 {{ u.state or 'Not specified' }}</div>
+            </td>
+            <td>
+              <strong>{{ u.farm_size_ha }}</strong> Ha
+            </td>
+            <td>
+              {% if u.role == 'admin' %}
+                <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; border: 1px solid #fde68a;">
+                  👑 Admin
+                </span>
+              {% else %}
+                <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 600; border: 1px solid #bae6fd;">
+                  🧑‍🌾 Farmer
+                </span>
+              {% endif %}
+            </td>
+            <td id="status-cell-{{ u.id }}">
+              {% if u.status == 'approved' %}
+                <span class="badge-status-approved">✅ Approved</span>
+              {% elif u.status == 'pending' %}
+                <span class="badge-status-pending">⏳ Pending</span>
+              {% else %}
+                <span class="badge-status-suspended">⛔ Suspended</span>
+              {% endif %}
+            </td>
+            <td>
+              <span style="font-weight: 700; color: var(--primary);">{{ u.prediction_count }}</span>
+              <div style="font-size: 0.72rem; color: var(--gray-medium);">{{ u.total_harvest_tonnes | round(1) }}t</div>
+            </td>
+            <td>
+              <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+                <!-- Permission: Approve -->
+                {% if u.status != 'approved' %}
+                  <button class="btn btn-sm btn-primary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="updateUserPermission({{ u.id }}, 'approved', '{{ u.role }}')" title="Grant full permission">
+                    ✅ Approve
+                  </button>
+                {% else %}
+                  <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 0.75rem; color: #b45309; border-color: #fde68a;" onclick="updateUserPermission({{ u.id }}, 'pending', '{{ u.role }}')" title="Set status to Pending Review">
+                    ⏸️ Pending
+                  </button>
+                {% endif %}
+
+                <!-- Permission: Suspend -->
+                {% if u.status != 'suspended' and u.id != session.get('user_id') %}
+                  <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 0.75rem; color: #b91c1c; border-color: #fca5a5;" onclick="updateUserPermission({{ u.id }}, 'suspended', '{{ u.role }}')" title="Suspend account access">
+                    ⛔ Suspend
+                  </button>
+                {% endif %}
+
+                <!-- Role Toggle: Admin / Farmer -->
+                {% if u.id != session.get('user_id') %}
+                  {% if u.role == 'farmer' %}
+                    <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 0.75rem; color: #0284c7; border-color: #bae6fd;" onclick="updateUserPermission({{ u.id }}, '{{ u.status }}', 'admin')" title="Promote to Administrator">
+                      👑 Make Admin
+                    </button>
+                  {% else %}
+                    <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 0.75rem; color: #059669; border-color: #a7f3d0;" onclick="updateUserPermission({{ u.id }}, '{{ u.status }}', 'farmer')" title="Revert to standard Farmer">
+                      🧑‍🌾 Revert to Farmer
+                    </button>
+                  {% endif %}
+
+                  <!-- Delete User -->
+                  <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 0.75rem; color: #dc2626; border-color: #fca5a5;" onclick="deleteUserAccount({{ u.id }}, '{{ u.name }}')" title="Delete user">
+                    🗑️
+                  </button>
+                {% else %}
+                  <span style="font-size: 0.75rem; color: #16a34a; font-weight: 700;">(Current You)</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 30px; color: var(--gray-medium);">
+              No users match the search criteria.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 2: Platform-Wide Prediction Activity Log -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div>
+        <div style="font-weight: 800; font-size: 1.25rem; color: var(--dark); display: flex; align-items: center; gap: 8px;">
+          <span>🌾</span> Pan-India Farmer Predictions Audit
+        </div>
+        <div style="font-size: 0.82rem; color: var(--gray-medium); margin-top: 2px;">
+          Review all live predictions generated by farmers across all states and crops.
+        </div>
+      </div>
+      <a href="{{ url_for('api_export_csv') }}" class="btn btn-outline btn-sm">
+        📥 Export CSV
+      </a>
+    </div>
+
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID & Date</th>
+            <th>Farmer & State</th>
+            <th>Crop (Season)</th>
+            <th>Soil</th>
+            <th>Area</th>
+            <th>Rain / Temp</th>
+            <th>Yield</th>
+            <th>Total Production</th>
+            <th>Advisory Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in predictions %}
+          <tr id="pred-row-{{ row.id }}">
+            <td>
+              <div style="font-weight: 700;">#{{ row.id }}</div>
+              <div style="font-size: 0.75rem; color: var(--gray-medium);">{{ row.created_at[:10] }}</div>
+            </td>
+            <td>
+              <div style="font-weight: 600;">{{ row.farmer_name }}</div>
+              <div style="font-size: 0.78rem; color: var(--gray-medium);">📍 {{ row.state }}</div>
+            </td>
+            <td>
+              <span style="font-weight: 700;">{{ row.crop }}</span>
+              <span style="font-size: 0.75rem; color: var(--gray-medium);">({{ row.season }})</span>
+            </td>
+            <td>{{ row.soil_type }}</td>
+            <td>{{ row.area_ha }} Ha</td>
+            <td>{{ row.rainfall_mm }}mm / {{ row.temp_c }}°C</td>
+            <td>
+              <strong style="color: var(--primary-dark);">{{ row.predicted_yield_t_ha }}</strong> t/ha
+            </td>
+            <td>
+              <strong>{{ row.total_production_tonnes }}</strong> t
+            </td>
+            <td>
+              {% if 'Optimal' in row.yield_status %}
+                <span class="badge badge-optimal">🌟 Optimal</span>
+              {% elif 'Good' in row.yield_status %}
+                <span class="badge badge-good">✅ Good</span>
+              {% else %}
+                <span class="badge badge-warning">⚠️ Low</span>
+              {% endif %}
+            </td>
+            <td>
+              <button class="btn btn-outline btn-sm" style="padding: 3px 8px; font-size: 0.75rem; color: #dc2626; border-color: #fca5a5;" onclick="deletePredictionRecord({{ row.id }})">
+                🗑️
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function updateUserPermission(userId, status, role) {
+  fetch("/admin/user/" + userId + "/permission", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: status, role: role })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      location.reload();
+    } else {
+      alert("Error: " + (data.error || "Failed to update permission"));
+    }
+  })
+  .catch(err => alert("Network error: " + err));
+}
+
+function deleteUserAccount(userId, userName) {
+  if (!confirm("Are you sure you want to delete user '" + userName + "' (#" + userId + ")? All their prediction records will also be removed.")) return;
+  fetch("/admin/user/" + userId + "/delete", { method: "POST" })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        const row = document.getElementById("user-row-" + userId);
+        if (row) row.remove();
+      } else {
+        alert("Error: " + (data.error || "Failed to delete user"));
+      }
+    })
+    .catch(err => alert("Network error: " + err));
+}
+
+function deletePredictionRecord(predId) {
+  if (!confirm("Delete prediction record #" + predId + "?")) return;
+  fetch("/api/delete/" + predId, { method: "POST" })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        const row = document.getElementById("pred-row-" + predId);
+        if (row) row.remove();
+      } else {
+        alert("Error: " + (data.error || "Failed to delete record"));
+      }
+    })
+    .catch(err => alert("Network error: " + err));
+}
+</script>
+{% endblock %}

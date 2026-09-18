@@ -72,16 +72,29 @@
         <li><a href="{{ url_for('index') }}" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a></li>
         <li><a href="{{ url_for('how_to_use_page') }}" class="nav-link {% if request.path == '/how-to-use' %}active{% endif %}">📖 How to Use</a></li>
         <li><a href="{{ url_for('predict_page') }}" class="nav-link {% if request.path == '/predict' %}active{% endif %}">Predict Yield</a></li>
-        <li><a href="{{ url_for('dashboard_page') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Analytics & History</a></li>
+        
+        {% if session.get('user_role') == 'admin' %}
+          <li><a href="{{ url_for('admin_dashboard') }}" class="nav-link {% if '/admin' in request.path %}active{% endif %}" style="color: #d97706; font-weight: 700;">👑 Admin Console</a></li>
+        {% elif session.get('user_id') %}
+          <li><a href="{{ url_for('farmer_dashboard') }}" class="nav-link {% if '/farmer' in request.path %}active{% endif %}" style="color: var(--primary); font-weight: 700;">🚜 Farmer Dashboard</a></li>
+        {% endif %}
+
+        <li><a href="{{ url_for('dashboard_page') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Analytics</a></li>
         <li><a href="{{ url_for('assistant_page') }}" class="nav-link {% if request.path == '/assistant' %}active{% endif %}">🤖 Kisan AI</a></li>
         <li><a href="{{ url_for('about_page') }}" class="nav-link {% if request.path == '/about' %}active{% endif %}">About AI</a></li>
         <li><a href="{{ url_for('contact_page') }}" class="nav-link {% if request.path == '/contact' %}active{% endif %}">Helplines</a></li>
         
         {% if session.get('user_id') %}
           <li style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 0.85rem; font-weight: 700; color: #1e7e34; background: #e8f5e9; padding: 4px 10px; border-radius: var(--radius-full);">
-              👤 {{ session.get('user_name', 'Farmer') }}
-            </span>
+            {% if session.get('user_role') == 'admin' %}
+              <a href="{{ url_for('admin_dashboard') }}" style="font-size: 0.82rem; font-weight: 700; color: #92400e; background: #fef3c7; padding: 4px 10px; border-radius: var(--radius-full); border: 1px solid #fde68a;">
+                👑 Admin: {{ session.get('user_name', 'Admin') }}
+              </a>
+            {% else %}
+              <a href="{{ url_for('farmer_dashboard') }}" style="font-size: 0.82rem; font-weight: 700; color: #1e7e34; background: #e8f5e9; padding: 4px 10px; border-radius: var(--radius-full); border: 1px solid #c8e6c9;">
+                👨‍🌾 {{ session.get('user_name', 'Farmer') }}
+              </a>
+            {% endif %}
           </li>
           <li><a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline" style="border-color: #fca5a5; color: #dc2626; padding: 4px 10px; font-size: 0.8rem;">Logout</a></li>
         {% else %}

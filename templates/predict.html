@@ -56,7 +56,12 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="state">State / Region <span style="color:red">*</span></label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" for="state" style="margin-bottom: 0;">State / Region <span style="color:red">*</span></label>
+              <button type="button" class="btn-detect-gps" id="btn-detect-gps" onclick="detectGPSWeather()" title="Auto-detect my location via GPS">
+                📍 Detect Location
+              </button>
+            </div>
             <select id="state" class="form-control" required>
               <option value="" disabled selected>Select State</option>
               {% for state in options.states %}
@@ -118,22 +123,48 @@
           </div>
         </div>
 
-        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 20px 0 14px; color: var(--dark); border-top: 1px solid var(--gray-border); padding-top: 16px;">
-          🌦️ 2. Weather & Crop Nutrition
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 20px 0 14px; color: var(--dark); border-top: 1px solid var(--gray-border); padding-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <span>🌦️ 2. Weather & Crop Nutrition</span>
+          <span style="font-size: 0.75rem; font-weight: 600; color: #15803d; background: #dcfce7; padding: 3px 8px; border-radius: 12px;">⚡ Auto-Synced from State</span>
         </h3>
+
+        <!-- Automated Live Weather Sync Card -->
+        <div class="weather-sync-banner" id="weather-sync-banner">
+          <div class="weather-sync-content">
+            <div class="weather-sync-icon" id="weather-sync-icon">🌤️</div>
+            <div class="weather-sync-text">
+              <div class="weather-sync-title" id="weather-sync-title">
+                Automated Live Weather Integration
+              </div>
+              <div class="weather-sync-desc" id="weather-sync-desc">
+                Select your State or Season above — live temperature and seasonal rainfall will automatically populate below!
+              </div>
+            </div>
+          </div>
+          <div class="weather-sync-status" id="weather-sync-status">
+            <span class="weather-pulse-dot"></span>
+            <span id="weather-status-text">Ready to Auto-Sync</span>
+          </div>
+        </div>
 
         <!-- Weather Conditions -->
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="rainfall">Seasonal Rainfall <span class="unit">(mm)</span> <span style="color:red">*</span></label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" for="rainfall" style="margin-bottom: 0;">Seasonal Rainfall <span class="unit">(mm)</span> <span style="color:red">*</span></label>
+              <span class="weather-auto-badge" id="rain-auto-badge" style="display: none;">⚡ Auto-Filled</span>
+            </div>
             <input type="number" step="1" min="50" max="3500" id="rainfall" class="form-control" placeholder="e.g. 850" required>
-            <div class="form-hint">Typical Indian rainfall: 300 to 2000 mm</div>
+            <div class="form-hint">Expected cumulative precipitation for the growing season</div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="temperature">Average Temperature <span class="unit">(°C)</span> <span style="color:red">*</span></label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" for="temperature" style="margin-bottom: 0;">Average Temperature <span class="unit">(°C)</span> <span style="color:red">*</span></label>
+              <span class="weather-auto-badge" id="temp-auto-badge" style="display: none;">⚡ Auto-Filled</span>
+            </div>
             <input type="number" step="0.5" min="5" max="50" id="temperature" class="form-control" placeholder="e.g. 26.5" required>
-            <div class="form-hint">Growing season average temperature</div>
+            <div class="form-hint">Average growing season ambient temperature</div>
           </div>
         </div>
 

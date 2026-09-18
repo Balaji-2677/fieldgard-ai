@@ -6,6 +6,7 @@ Handles SQLite database persistence, historical logs, analytics aggregation, and
 import os
 import sqlite3
 from datetime import datetime
+from werkzeug.security import generate_password_hash
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crop_yield.db")
 
@@ -17,7 +18,7 @@ def get_connection():
 
 
 def init_db():
-    """Initialize database tables and seed sample farmer records if empty."""
+    """Initialize database tables, schema migrations, and seed sample farmer & admin records."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -30,7 +31,9 @@ def init_db():
         password_hash TEXT NOT NULL,
         phone TEXT,
         state TEXT,
-        farm_size_ha REAL DEFAULT 1.0
+        farm_size_ha REAL DEFAULT 1.0,
+        role TEXT DEFAULT 'farmer',
+        status TEXT DEFAULT 'approved'
     );
     """)
 
@@ -57,12 +60,42 @@ def init_db():
     );
     """)
 
-    # Check if user_id column exists in predictions (migration for existing db)
+    # Schema migration: Check if role and status columns exist in users table
+    cursor.execute("PRAGMA table_info(users)")
+    user_columns = [col[1] for col in cursor.fetchall()]
+    if "role" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'farmer'")
+    if "status" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'approved'")
+    conn.commit()
+
+    # Schema migration: Check if user_id column exists in predictions
     cursor.execute("PRAGMA table_info(predictions)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if "user_id" not in columns:
+    pred_columns = [col[1] for col in cursor.fetchall()]
+    if "user_id" not in pred_columns:
         cursor.execute("ALTER TABLE predictions ADD COLUMN user_id INTEGER")
     conn.commit()
+
+    # Seed master Admin account if not already present
+    cursor.execute("SELECT id FROM users WHERE LOWER(email) = 'admin@cropyield.ai'")
+    admin_row = cursor.fetchone()
+    if not admin_row:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("""
+        INSERT INTO users (created_at, name, email, password_hash, phone, state, farm_size_ha, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            now_str,
+            "Master Administrator",
+            "admin@cropyield.ai",
+            generate_password_hash("admin123"),
+            "1800-180-1551",
+            "Delhi",
+            10.0,
+            "admin",
+            "approved"
+        ))
+        conn.commit()
 
     # Seed sample records if table is brand new
     cursor.execute("SELECT COUNT(*) FROM predictions")
@@ -166,18 +199,28 @@ def init_db():
         """, sample_records)
         conn.commit()
 
+    # Enforce maximum 50 history prediction records in database
+    cursor.execute("""
+    DELETE FROM predictions 
+    WHERE id NOT IN (
+        SELECT id FROM (
+            SELECT id FROM predictions ORDER BY id DESC LIMIT 50
+        )
+    )
+    """)
+    conn.commit()
     conn.close()
 
 
-def create_user(name, email, password_hash, phone=None, state=None, farm_size_ha=1.0):
-    """Register a new user into SQLite."""
+def create_user(name, email, password_hash, phone=None, state=None, farm_size_ha=1.0, role="farmer", status="approved"):
+    """Register a new user into SQLite with role and permission status."""
     conn = get_connection()
     cursor = conn.cursor()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute("""
-    INSERT INTO users (created_at, name, email, password_hash, phone, state, farm_size_ha)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO users (created_at, name, email, password_hash, phone, state, farm_size_ha, role, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         now_str,
         name.strip(),
@@ -185,7 +228,9 @@ def create_user(name, email, password_hash, phone=None, state=None, farm_size_ha
         password_hash,
         phone.strip() if phone else None,
         state.strip() if state else None,
-        float(farm_size_ha or 1.0)
+        float(farm_size_ha or 1.0),
+        role,
+        status
     ))
 
     user_id = cursor.lastrowid
@@ -251,6 +296,17 @@ def save_prediction(data, user_id=None):
     ))
 
     inserted_id = cursor.lastrowid
+
+    # Automatically keep only the latest 50 history prediction records, deleting older records
+    cursor.execute("""
+    DELETE FROM predictions 
+    WHERE id NOT IN (
+        SELECT id FROM (
+            SELECT id FROM predictions ORDER BY id DESC LIMIT 50
+        )
+    )
+    """)
+
     conn.commit()
     conn.close()
     return inserted_id
@@ -293,6 +349,25 @@ def delete_prediction(pred_id):
     cursor.execute("DELETE FROM predictions WHERE id = ?", (pred_id,))
     conn.commit()
     conn.close()
+
+
+def prune_predictions_history(max_records=50):
+    """Enforce maximum limit of history records in database, automatically deleting remaining older records."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    DELETE FROM predictions 
+    WHERE id NOT IN (
+        SELECT id FROM (
+            SELECT id FROM predictions ORDER BY id DESC LIMIT ?
+        )
+    )
+    """, (max_records,))
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted_count
+
 
 
 def get_stats():
@@ -360,3 +435,163 @@ def get_all_for_csv():
     rows = cursor.fetchall()
     conn.close()
     return columns, rows
+
+
+def get_all_users(search=None, role_filter=None, status_filter=None):
+    """Retrieve all registered users with prediction counts and permission status."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT u.id, u.created_at, u.name, u.email, u.phone, u.state, u.farm_size_ha, u.role, u.status,
+           COUNT(p.id) as prediction_count,
+           COALESCE(SUM(p.total_production_tonnes), 0) as total_harvest_tonnes
+    FROM users u
+    LEFT JOIN predictions p ON u.id = p.user_id
+    WHERE 1=1
+    """
+    params = []
+
+    if role_filter and role_filter != "all":
+        query += " AND u.role = ?"
+        params.append(role_filter)
+
+    if status_filter and status_filter != "all":
+        query += " AND u.status = ?"
+        params.append(status_filter)
+
+    if search:
+        query += " AND (u.name LIKE ? OR u.email LIKE ? OR u.state LIKE ? OR u.phone LIKE ?)"
+        like_str = f"%{search}%"
+        params.extend([like_str, like_str, like_str, like_str])
+
+    query += " GROUP BY u.id ORDER BY u.id DESC"
+    cursor.execute(query, params)
+    users = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return users
+
+
+def update_user_permission(user_id, status=None, role=None):
+    """Admin tool: Update user approval/permission status and role."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if status and role:
+        cursor.execute("UPDATE users SET status = ?, role = ? WHERE id = ?", (status, role, user_id))
+    elif status:
+        cursor.execute("UPDATE users SET status = ? WHERE id = ?", (status, user_id))
+    elif role:
+        cursor.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+    conn.commit()
+    conn.close()
+
+
+def update_user_profile(user_id, name, phone, state, farm_size_ha):
+    """Farmer tool: Update profile details from Farmer Dashboard."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    UPDATE users 
+    SET name = ?, phone = ?, state = ?, farm_size_ha = ?
+    WHERE id = ?
+    """, (
+        name.strip(),
+        phone.strip() if phone else None,
+        state.strip() if state else None,
+        float(farm_size_ha or 1.0),
+        user_id
+    ))
+    conn.commit()
+    conn.close()
+
+
+def delete_user(user_id):
+    """Admin tool: Delete user and their associated predictions."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM predictions WHERE user_id = ?", (user_id,))
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_farmer_dashboard_stats(user_id):
+    """Aggregate personalized farm statistics for Farmer Dashboard."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT COUNT(*), 
+           COALESCE(SUM(area_ha), 0), 
+           COALESCE(SUM(total_production_tonnes), 0),
+           COALESCE(AVG(predicted_yield_t_ha), 0)
+    FROM predictions
+    WHERE user_id = ?
+    """, (user_id,))
+    row = cursor.fetchone()
+    count = row[0] or 0
+    total_area = row[1] or 0.0
+    total_harvest = row[2] or 0.0
+    avg_yield = row[3] or 0.0
+
+    cursor.execute("""
+    SELECT crop, COUNT(*) as cnt
+    FROM predictions
+    WHERE user_id = ?
+    GROUP BY crop
+    ORDER BY cnt DESC
+    LIMIT 1
+    """, (user_id,))
+    top_crop_row = cursor.fetchone()
+    top_crop = top_crop_row[0] if top_crop_row else "None yet"
+
+    conn.close()
+    return {
+        "total_predictions": count,
+        "total_area_ha": round(total_area, 1),
+        "total_production_tonnes": round(total_harvest, 2),
+        "avg_yield": round(avg_yield, 2),
+        "top_crop": top_crop
+    }
+
+
+def get_admin_dashboard_stats():
+    """Aggregate platform-wide management statistics for Admin Dashboard."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'approved'")
+    approved_users = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'pending'")
+    pending_users = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'farmer'")
+    total_farmers = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+    total_admins = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(*) FROM predictions")
+    total_predictions = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(DISTINCT state) FROM predictions")
+    active_states = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(DISTINCT crop) FROM predictions")
+    active_crops = cursor.fetchone()[0] or 0
+
+    conn.close()
+    return {
+        "total_users": total_users,
+        "approved_users": approved_users,
+        "pending_users": pending_users,
+        "total_farmers": total_farmers,
+        "total_admins": total_admins,
+        "total_predictions": total_predictions,
+        "active_states": active_states,
+        "active_crops": active_crops
+    }
+

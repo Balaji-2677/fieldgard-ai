@@ -131,6 +131,23 @@ CONVERSATIONAL_INTENTS = [
             "How to use the website?",
             "What crops are supported?"
         ]
+    },
+    {
+        "intent": "joke",
+        "keywords": ["joke", "jokes", "funny", "laugh", "make me laugh", "humour", "humor"],
+        "title": "😄 Farming Humour & Kisan Wisdom",
+        "reply": (
+            "Why did the scarecrow win a national agricultural award?\n\n"
+            "Because he was **outstanding in his field**! 🌾😄\n\n"
+            "Here is another one for you:\n"
+            "*Why do farmers make wonderful musicians? Because they always grow a magnificent crop of beets!* 🎶🚜\n\n"
+            "Farming is hard work, but a happy heart brings an abundant harvest! What crop can I help you with today?"
+        ),
+        "suggestions": [
+            "How to increase crop yield?",
+            "What fertilizer to use for wheat?",
+            "Government schemes for farmers"
+        ]
     }
 ]
 
@@ -446,6 +463,41 @@ BROAD_TOPICS = [
             "Predict crop yield before harvest",
             "How to get Kisan Credit Card?"
         ]
+    },
+    {
+        "intent": "organic_pesticides",
+        "keywords": ["neemastra", "brahmastra", "agniastra", "bio pesticide", "organic pesticide", "natural spray", "homemade spray", "herbal spray"],
+        "title": "🌿 Natural Bio-Pesticide Recipes (Neemastra & Brahmastra)",
+        "reply": (
+            "**Traditional Natural Formulations for Pest Defense (Zero Chemical):**\n\n"
+            "1. **Neemastra (For Sucking Pests, Aphids & Whiteflies):**\n"
+            "   • 5 kg crushed fresh neem leaves + 5 kg cow dung + 5 L cow urine in 100 L water. Ferment for 48 hours in shade. Filter and spray directly.\n\n"
+            "2. **Brahmastra (For Tough Borers & Large Caterpillars):**\n"
+            "   • Crush 2 kg neem leaves, 2 kg papaya leaves, 2 kg guava leaves, and 2 kg custard apple (sitaphal) leaves. Boil in 10 L cow urine until reduced to half. Dilute 2-3 L per 100 L water.\n\n"
+            "3. **Agniastra (For Resistant Stem Borers & Leaf Folders):**\n"
+            "   • Boil 500g crushed garlic + 500g spicy green chillies + 500g neem leaves in 15 L cow urine. Highly potent against stubborn insect infestations."
+        ),
+        "suggestions": [
+            "How to make vermicompost?",
+            "Organic farming tips",
+            "How to control bollworm in cotton?"
+        ]
+    },
+    {
+        "intent": "crop_rotation",
+        "keywords": ["rotation", "crop rotation", "intercropping", "intercrop", "companion", "mixed cropping", "soil exhaustion"],
+        "title": "🔄 Scientific Crop Rotation & Intercropping Rules",
+        "reply": (
+            "**Principles of Sustainable Crop Rotation:**\n\n"
+            "1. **Cereal followed by Legume:** Always follow heavy nitrogen eaters (Rice, Wheat, Maize) with nitrogen-fixing pulses (Chickpea, Moong, Urad). This naturally enriches your soil with 30–50 kg/ha atmospheric nitrogen!\n"
+            "2. **Deep vs Shallow Root Alternation:** Alternate deep-rooted crops (Cotton, Pigeon Pea) with shallow-rooted crops (Wheat, Onion) to prevent hardpan formation and utilize multi-depth soil moisture.\n"
+            "3. **Family Disruption:** Never plant crops of the same botanical family consecutively (e.g., Potato ➔ Tomato ➔ Chilli) to break soil-borne fungus and nematode lifecycles."
+        ),
+        "suggestions": [
+            "How to improve soil health?",
+            "Fertilizer dose for wheat",
+            "What crops are supported?"
+        ]
     }
 ]
 
@@ -468,11 +520,12 @@ def detect_crop_in_query(query: str) -> str:
     return None
 
 
-def answer_farming_doubt(query: str, user_name: str = "Farmer") -> dict:
+def answer_farming_doubt(query: str, user_name: str = "Farmer", history: list = None) -> dict:
     """
     Parses farmer query and returns customized agronomic advice,
     actionable tips, and follow-up suggestion chips.
     Guarantees unique, highly specific answers for every question.
+    Maintains multi-turn context memory across conversation history.
     """
     cleaned_query = query.lower().strip()
     words = set(re.findall(r"\b\w+\b", cleaned_query))
@@ -488,6 +541,15 @@ def answer_farming_doubt(query: str, user_name: str = "Farmer") -> dict:
 
     # 2. Detect Crop (Direct name or Hindi/regional alias)
     detected_crop = detect_crop_in_query(cleaned_query)
+
+    # If no crop in current query, check recent multi-turn conversation history
+    if not detected_crop and history:
+        for msg in reversed(history):
+            prev_text = msg.get("content", "") or msg.get("message", "")
+            prev_crop = detect_crop_in_query(prev_text)
+            if prev_crop:
+                detected_crop = prev_crop
+                break
 
     # 3. Detect Query Sub-Intent
     detected_subtopic = None

@@ -487,10 +487,188 @@ AGRONOMIC_KNOWLEDGE = {
     }
 }
 
+# Major agricultural crops widely cultivated and successful across Indian States & UTs
+STATE_AGRO_CROPS = {
+    "Andhra Pradesh": ["Rice", "Cotton", "Maize", "Groundnut", "Sugarcane", "Banana"],
+    "Arunachal Pradesh": ["Rice", "Maize", "Millets", "Potato", "Apple"],
+    "Assam": ["Tea", "Rice", "Jute", "Mustard", "Banana"],
+    "Bihar": ["Rice", "Wheat", "Maize", "Sugarcane", "Potato", "Jute", "Chickpea"],
+    "Chhattisgarh": ["Rice", "Maize", "Soybean", "Chickpea", "Groundnut"],
+    "Goa": ["Coconut", "Rice", "Banana", "Cashew"],
+    "Gujarat": ["Groundnut", "Cotton", "Wheat", "Mustard", "Onion", "Maize"],
+    "Haryana": ["Wheat", "Mustard", "Cotton", "Rice", "Sugarcane", "Barley"],
+    "Himachal Pradesh": ["Apple", "Potato", "Maize", "Wheat", "Barley", "Tomato"],
+    "Jharkhand": ["Rice", "Maize", "Potato", "Tomato", "Wheat"],
+    "Karnataka": ["Maize", "Sugarcane", "Rice", "Cotton", "Groundnut", "Coconut"],
+    "Kerala": ["Coconut", "Banana", "Tea", "Cardamom", "Rice"],
+    "Madhya Pradesh": ["Soybean", "Wheat", "Chickpea", "Maize", "Mustard", "Cotton"],
+    "Maharashtra": ["Cotton", "Soybean", "Sugarcane", "Onion", "Maize", "Groundnut", "Wheat"],
+    "Manipur": ["Rice", "Maize", "Potato"],
+    "Meghalaya": ["Rice", "Potato", "Maize", "Banana"],
+    "Mizoram": ["Rice", "Maize", "Banana"],
+    "Nagaland": ["Rice", "Maize", "Millets"],
+    "Odisha": ["Rice", "Groundnut", "Jute", "Sugarcane", "Maize"],
+    "Punjab": ["Wheat", "Rice", "Cotton", "Maize", "Sugarcane", "Potato", "Mustard", "Barley"],
+    "Rajasthan": ["Mustard", "Barley", "Millets", "Chickpea", "Wheat", "Cotton", "Groundnut"],
+    "Sikkim": ["Cardamom", "Maize", "Rice", "Potato", "Tea"],
+    "Tamil Nadu": ["Rice", "Banana", "Sugarcane", "Maize", "Groundnut", "Coconut", "Cotton"],
+    "Telangana": ["Cotton", "Rice", "Maize", "Soybean", "Groundnut"],
+    "Tripura": ["Rice", "Jute", "Tea", "Potato"],
+    "Uttar Pradesh": ["Sugarcane", "Wheat", "Rice", "Potato", "Maize", "Mustard", "Chickpea"],
+    "Uttarakhand": ["Wheat", "Rice", "Sugarcane", "Soybean", "Potato", "Apple"],
+    "West Bengal": ["Rice", "Jute", "Potato", "Tea", "Maize", "Mustard"],
+    "Andaman and Nicobar Islands": ["Coconut", "Rice", "Banana"],
+    "Chandigarh": ["Wheat", "Mustard", "Maize"],
+    "Dadra and Nagar Haveli and Daman and Diu": ["Rice", "Millets", "Sugarcane"],
+    "Delhi": ["Wheat", "Mustard", "Maize"],
+    "Jammu and Kashmir": ["Apple", "Wheat", "Maize", "Rice", "Barley"],
+    "Ladakh": ["Barley", "Wheat", "Potato", "Apple"],
+    "Lakshadweep": ["Coconut", "Banana"],
+    "Puducherry": ["Rice", "Sugarcane", "Coconut", "Banana"],
+}
 
-def analyze_crop_prediction(crop, season, soil, rainfall, temp, fertilizer, predicted_yield, area):
+
+def recommend_alternative_crop_for_low_yield(
+    current_crop, state, season, soil, rainfall, temp, fertilizer, predicted_yield, area, ml_model=None
+):
     """
-    Analyzes prediction against scientific agronomic criteria and generates tailored advice.
+    Suggests an optimal, high-yielding replacement crop when the farmer's predicted yield
+    is low or sub-optimal, evaluated based on their State (area) and agronomic field data.
+    """
+    if not state:
+        state = "Punjab"
+
+    state_crops = STATE_AGRO_CROPS.get(state, [])
+    candidates = []
+
+    for cand_name, cand_info in AGRONOMIC_KNOWLEDGE.items():
+        if cand_name.lower() == current_crop.lower():
+            continue
+
+        score = 0
+
+        # 1. State / Regional fit (Area means State)
+        in_state = cand_name in state_crops
+        if in_state:
+            score += 35
+        elif not state_crops:
+            score += 15
+
+        # 2. Season fit
+        cand_seasons = cand_info.get("ideal_seasons", [])
+        if season in cand_seasons or "Whole Year" in cand_seasons or season == "Whole Year":
+            score += 30
+        else:
+            score -= 30
+
+        # 3. Soil fit
+        cand_soils = cand_info.get("ideal_soils", [])
+        if soil in cand_soils:
+            score += 20
+        else:
+            score += 5
+
+        # 4. Temperature fit
+        t_min, t_max = cand_info.get("temp_opt", (15, 35))
+        if t_min <= temp <= t_max:
+            score += 15
+        elif (t_min - 4) <= temp <= (t_max + 4):
+            score += 8
+
+        # 5. Rainfall fit
+        r_min, r_max = cand_info.get("rain_opt", (300, 1500))
+        if r_min <= rainfall <= r_max:
+            score += 15
+        elif (r_min * 0.6) <= rainfall <= (r_max * 1.4):
+            score += 8
+
+        # 6. Expected yield calculation for candidate crop
+        expected_yield = None
+        if ml_model is not None:
+            try:
+                import pandas as pd
+                effective_season = season if (season in cand_seasons or "Whole Year" in cand_seasons) else cand_seasons[0]
+                test_df = pd.DataFrame([{
+                    "Crop": cand_name,
+                    "State": state,
+                    "Season": effective_season,
+                    "Soil_Type": soil,
+                    "Area_Hectares": float(area or 1.0),
+                    "Rainfall_mm": float(rainfall),
+                    "Temperature_Celsius": float(temp),
+                    "Fertilizer_kg_per_ha": float(fertilizer),
+                    "Pesticide_kg_per_ha": 1.5
+                }])
+                raw_pred = float(ml_model.predict(test_df)[0])
+                expected_yield = round(max(0.2, raw_pred), 2)
+            except Exception:
+                expected_yield = None
+
+        if expected_yield is None:
+            fit_multiplier = max(0.85, min(1.25, score / 80.0))
+            expected_yield = round(cand_info.get("avg_yield", 3.0) * fit_multiplier, 2)
+
+        if score >= 45:
+            yield_gain = round(expected_yield - predicted_yield, 2)
+            pct_gain = round(((expected_yield - predicted_yield) / max(0.1, predicted_yield)) * 100, 1)
+
+            candidates.append({
+                "crop": cand_name,
+                "icon": cand_info.get("icon", "🌾"),
+                "category": cand_info.get("category", "Agricultural Crop"),
+                "score": score,
+                "expected_yield_t_ha": expected_yield,
+                "yield_gain_t_ha": yield_gain,
+                "yield_diff_percent": pct_gain,
+                "in_state": in_state,
+                "ideal_seasons": cand_seasons,
+                "ideal_soils": cand_soils,
+                "temp_opt": (t_min, t_max),
+                "rain_opt": (r_min, r_max)
+            })
+
+    if not candidates:
+        return None
+
+    # Sort candidates prioritizing state suitability, yield gain, and agro score
+    candidates.sort(
+        key=lambda x: (x["in_state"], x["yield_gain_t_ha"] > 0, x["expected_yield_t_ha"], x["score"]),
+        reverse=True
+    )
+
+    best = candidates[0]
+    state_phrase = f"in {state}" if state else "in your region"
+    gain_phrase = f"+{best['yield_diff_percent']}% yield gain" if best['yield_diff_percent'] > 0 else "higher yield stability"
+
+    reason = (
+        f"Based on your farm location {state_phrase} and field conditions, "
+        f"{best['crop']} is strongly recommended! Your {soil} soil, {season} season, "
+        f"and climate ({rainfall} mm rainfall, {temp}°C) provide superior growing conditions for {best['crop']}, "
+        f"projecting an estimated harvest of {best['expected_yield_t_ha']} tonnes/ha ({gain_phrase} compared to {predicted_yield} t/ha for {current_crop})."
+    )
+
+    return {
+        "crop": best["crop"],
+        "icon": best["icon"],
+        "category": best["category"],
+        "expected_yield_t_ha": best["expected_yield_t_ha"],
+        "current_yield_t_ha": round(predicted_yield, 2),
+        "yield_gain_t_ha": best["yield_gain_t_ha"],
+        "yield_diff_percent": best["yield_diff_percent"],
+        "reason": reason,
+        "state": state,
+        "season": season,
+        "soil": soil,
+        "why_state": f"Highly cultivated and proven in {state}",
+        "why_soil": f"Strong root penetration in {soil} soil",
+        "why_climate": f"Fits {rainfall} mm rainfall & {temp}°C climate"
+    }
+
+
+def analyze_crop_prediction(crop, season, soil, rainfall, temp, fertilizer, predicted_yield, area, state=None, ml_model=None):
+    """
+    Analyzes prediction against scientific agronomic criteria and generates tailored advice,
+    including intelligent crop suggestions when yield is low or sub-optimal.
     """
     info = AGRONOMIC_KNOWLEDGE.get(crop, {
         "icon": "🌱",
@@ -524,8 +702,48 @@ def analyze_crop_prediction(crop, season, soil, rainfall, temp, fertilizer, pred
         status_icon = "⚠️"
         summary = f"Yield is projected {round((1.0 - ratio)*100, 1)}% below normal. Review soil, water, and nutrient balance."
 
+    # Suggest alternative crop if user is getting less yield
+    suggested_crop = None
+    is_less_yield = (
+        (ratio < 1.0)
+        or ("Sub-Optimal" in status)
+        or ("Low" in status)
+        or (predicted_yield < 2.5 and crop not in ["Cardamom", "Saffron"])
+    )
+
+    if is_less_yield or state:
+        suggested_crop = recommend_alternative_crop_for_low_yield(
+            current_crop=crop,
+            state=state or "Punjab",
+            season=season,
+            soil=soil,
+            rainfall=rainfall,
+            temp=temp,
+            fertilizer=fertilizer,
+            predicted_yield=predicted_yield,
+            area=area,
+            ml_model=ml_model
+        )
+
+    # If the user is already getting optimal yield and suggested crop does not improve yield, omit suggestion
+    if not is_less_yield and suggested_crop and suggested_crop["yield_gain_t_ha"] <= 0:
+        suggested_crop = None
+
+    # Embed suggestion directly into the report summary for full report visibility
+    if suggested_crop:
+        summary += f" 💡 Recommendation: Due to sub-optimal harvest projection for {crop}, cultivating {suggested_crop['crop']} is suggested for {state or 'your region'} with an expected yield of {suggested_crop['expected_yield_t_ha']} t/ha."
+
     # Insights & Warnings
     advisory_notes = []
+
+    # If user is getting less yield and an alternative crop is suggested, feature it at top of advisories
+    if suggested_crop:
+        gain_str = f"+{suggested_crop['yield_diff_percent']}% yield boost" if suggested_crop['yield_diff_percent'] > 0 else "higher yield stability"
+        advisory_notes.append({
+            "type": "alert",
+            "title": f"💡 Recommended Alternative Crop for {state or 'Your Region'}",
+            "text": f"Projected yield for {crop} ({round(predicted_yield, 2)} t/ha) is low. Based on your {state} location, {soil} soil, and {season} climate data, switching to {suggested_crop['crop']} is projected to yield {suggested_crop['expected_yield_t_ha']} tonnes/ha ({gain_str})."
+        })
 
     # Soil check
     if soil in info["ideal_soils"]:
@@ -621,5 +839,7 @@ def analyze_crop_prediction(crop, season, soil, rainfall, temp, fertilizer, pred
         "advisories": advisory_notes,
         "expert_tips": info.get("tips", []),
         "area_ha": round(area, 2),
-        "area_acres": area_acres
+        "area_acres": area_acres,
+        "suggested_alternative_crop": suggested_crop,
     }
+
