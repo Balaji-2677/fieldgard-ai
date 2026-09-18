@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Crop Yield AI - Smart Agricultural Prediction for Farmers{% endblock %}</title>
+  
+  <!-- Favicon / Emoji Icon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌾</text></svg>">
+  
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <!-- Top Announcement / Farmer Helpline & Language Bar -->
+  <div class="top-bar">
+    <div class="container">
+      <div>
+        <span>🌾 National Farmer Support Helpline (Toll-Free): </span>
+        <a href="tel:18001801551" class="helpline-link">1800-180-1551</a> (6 AM - 10 PM)
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <!-- Indian Language Selector -->
+        <div class="language-selector-box">
+          <label for="languageSelect" style="color: #ffde59; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+            <span>🌐</span> <span>Language / भाषा:</span>
+          </label>
+          <select id="languageSelect" class="language-select" onchange="changeWebsiteLanguage(this.value)">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="kn">ಕನ್ನಡ (Kannada)</option>
+            <option value="ml">മലയാളം (Malayalam)</option>
+            <option value="mr">मराठी (Marathi)</option>
+            <option value="gu">ગુજરાતી (Gujarati)</option>
+            <option value="bn">বাংলা (Bengali)</option>
+            <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+            <option value="or">ଓଡ଼ିଆ (Odia)</option>
+            <option value="as">অসমীয়া (Assamese)</option>
+            <option value="ur">اردو (Urdu)</option>
+          </select>
+        </div>
+        <!-- Hidden Google Translate Element Anchor -->
+        <div id="google_translate_element" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Navigation Bar -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="brand">
+        <span class="brand-icon">🌾</span>
+        <span>CropYield<span style="color: #28a745;">AI</span></span>
+        <span class="brand-badge">AgriTech</span>
+      </a>
+
+      <button class="mobile-toggle" aria-label="Toggle navigation menu">
+        &#9776;
+      </button>
+
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('index') }}" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a></li>
+        <li><a href="{{ url_for('how_to_use_page') }}" class="nav-link {% if request.path == '/how-to-use' %}active{% endif %}">📖 How to Use</a></li>
+        <li><a href="{{ url_for('predict_page') }}" class="nav-link {% if request.path == '/predict' %}active{% endif %}">Predict Yield</a></li>
+        <li><a href="{{ url_for('dashboard_page') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Analytics & History</a></li>
+        <li><a href="{{ url_for('assistant_page') }}" class="nav-link {% if request.path == '/assistant' %}active{% endif %}">🤖 Kisan AI</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link {% if request.path == '/about' %}active{% endif %}">About AI</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link {% if request.path == '/contact' %}active{% endif %}">Helplines</a></li>
+        
+        {% if session.get('user_id') %}
+          <li style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #1e7e34; background: #e8f5e9; padding: 4px 10px; border-radius: var(--radius-full);">
+              👤 {{ session.get('user_name', 'Farmer') }}
+            </span>
+          </li>
+          <li><a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline" style="border-color: #fca5a5; color: #dc2626; padding: 4px 10px; font-size: 0.8rem;">Logout</a></li>
+        {% else %}
+          <li><a href="{{ url_for('login') }}" class="nav-link {% if request.path == '/login' %}active{% endif %}">🔑 Login</a></li>
+          <li><a href="{{ url_for('register') }}" class="btn btn-sm btn-outline">📝 Register</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Page Content -->
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-brand">
+            <span>🌾</span> CropYield AI
+          </div>
+          <p class="footer-desc">
+            A real-world agricultural intelligence platform empowering farmers with precision machine learning crop yield forecasts, soil suitability analysis, and actionable field advisory to maximize harvest profitability.
+          </p>
+          <div style="margin-top: 14px; font-size: 0.85rem; color: #ffde59;">
+            Trained on ICAR & Ministry of Agriculture benchmarks.
+          </div>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Platform</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('index') }}">Home Overview</a></li>
+            <li><a href="{{ url_for('how_to_use_page') }}">📖 How to Use Website</a></li>
+            <li><a href="{{ url_for('predict_page') }}">Crop Yield Prediction</a></li>
+            <li><a href="{{ url_for('dashboard_page') }}">Field History & Charts</a></li>
+            <li><a href="{{ url_for('api_export_csv') }}">Download CSV Data</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Information</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('about_page') }}">Machine Learning Science</a></li>
+            <li><a href="{{ url_for('about_page') }}#faqs">Farmer FAQs</a></li>
+            <li><a href="{{ url_for('contact_page') }}">Agricultural Schemes</a></li>
+            <li><a href="{{ url_for('contact_page') }}">Kisan Assistance</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Government Resources</h4>
+          <ul class="footer-links">
+            <li><a href="https://mkisan.gov.in" target="_blank" rel="noopener">mKisan Farmer Portal ↗</a></li>
+            <li><a href="https://soilhealth.dac.gov.in" target="_blank" rel="noopener">Soil Health Card Scheme ↗</a></li>
+            <li><a href="https://pmfby.gov.in" target="_blank" rel="noopener">PM Fasal Bima Yojana ↗</a></li>
+            <li><a href="https://icar.org.in" target="_blank" rel="noopener">Indian Council of Agri Research ↗</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>
+          &copy; 2026 CropYield AI. Dedicated to supporting hard-working farmers and sustainable agriculture.
+        </div>
+        <div>
+          <span>Accuracy: 98.7% R² | Random Forest ML Pipeline</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Floating Kisan AI Assistant Launcher -->
+  {% if request.path != '/assistant' %}
+  <a href="{{ url_for('assistant_page') }}" class="floating-assistant-btn" title="Chat with Kisan AI Assistant">
+    <span class="floating-assistant-pulse"></span>
+    <span>🤖 Ask Kisan AI</span>
+  </a>
+  {% endif %}
+
+  <!-- Global Scripts -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+  <!-- Google Translate Integration for Pan-India Regional Languages -->
+  <script type="text/javascript">
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement({
+        pageLanguage: 'en',
+        includedLanguages: 'en,hi,te,ta,kn,ml,mr,gu,bn,pa,or,as,ur',
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+        autoDisplay: false
+      }, 'google_translate_element');
+    }
+  </script>
+  <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

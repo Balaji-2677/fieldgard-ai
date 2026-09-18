@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Predict Crop Yield - CropYield AI{% endblock %}
+
+{% block content %}
+<div class="container">
+  <!-- Page Header -->
+  <div style="margin-top: 30px; margin-bottom: 20px;">
+    <h1 style="font-size: 2.2rem; font-weight: 800; color: var(--dark); display: flex; align-items: center; gap: 10px;">
+      <span>🌾</span> Crop Yield Prediction & Farm Advisory
+    </h1>
+    <p style="color: var(--gray-medium); font-size: 1.05rem;">
+      Fill in your farm's agro-climatic details below. Our Random Forest machine learning pipeline will estimate your harvest yield and provide customized agronomic recommendations.
+    </p>
+  </div>
+
+  <!-- Quick Autofill Presets -->
+  <div class="card" style="padding: 16px 20px; margin-bottom: 24px; background: #fdfefe; border-color: #d1fae5;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+      <div style="font-size: 0.88rem; font-weight: 700; color: #065f46; display: flex; align-items: center; gap: 6px;">
+        <span>⚡ Quick Demo Presets:</span>
+        <span style="font-weight: normal; color: #047857;">Click to test realistic regional scenarios:</span>
+      </div>
+      <div class="preset-pills" style="margin-bottom: 0;">
+        <button type="button" class="preset-btn" data-preset="wheat_punjab">🌾 Wheat (Punjab)</button>
+        <button type="button" class="preset-btn" data-preset="rice_bengal">🌾 Rice (W. Bengal)</button>
+        <button type="button" class="preset-btn" data-preset="cotton_maharashtra">🌱 Cotton (Maharashtra)</button>
+        <button type="button" class="preset-btn" data-preset="sugarcane_up">🎋 Sugarcane (UP)</button>
+        <button type="button" class="preset-btn" data-preset="tomato_karnataka">🍅 Tomato (Karnataka)</button>
+        <button type="button" class="preset-btn" data-preset="onion_maharashtra">🧅 Onion (Maharashtra)</button>
+        <button type="button" class="preset-btn" data-preset="apple_kashmir">🍎 Apple (J&amp;K)</button>
+      </div>
+      <div style="margin-top: 8px; width: 100%; text-align: right;">
+        <a href="{{ url_for('how_to_use_page') }}" style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.86rem; font-weight: 700; color: #1e7e34; text-decoration: underline;">
+          📖 First time? View Complete Step-by-Step Farmer's Guide &rarr;
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid: Form on Left, Live Result on Right -->
+  <div class="predict-layout">
+    
+    <!-- Left Column: Input Form -->
+    <div class="card predict-form-card">
+      <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 18px; color: var(--dark); border-bottom: 1px solid var(--gray-border); padding-bottom: 12px;">
+        🚜 1. Farm & Agro-Climatic Parameters
+      </h2>
+
+      <form id="predict-form">
+        <!-- Farmer Info -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="farmer_name">Farmer / Plot Name <span class="unit">(Optional)</span></label>
+            <input type="text" id="farmer_name" class="form-control" placeholder="e.g. Ramesh Singh / North Field">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="state">State / Region <span style="color:red">*</span></label>
+            <select id="state" class="form-control" required>
+              <option value="" disabled selected>Select State</option>
+              {% for state in options.states %}
+                <option value="{{ state }}">{{ state }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Crop & Season Selection -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="crop">Select Crop <span style="color:red">*</span></label>
+            <select id="crop" class="form-control" required>
+              <option value="" disabled selected>Choose a Crop</option>
+              {% for crop in options.crops %}
+                <option value="{{ crop }}">
+                  {{ agri_knowledge.get(crop, {}).get('icon', '🌱') }} {{ crop }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="season">Cropping Season <span style="color:red">*</span></label>
+            <select id="season" class="form-control" required>
+              <option value="" disabled selected>Select Season</option>
+              {% for season in options.seasons %}
+                <option value="{{ season }}">{{ season }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Soil & Land Area -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="soil_type">Soil Type <span style="color:red">*</span></label>
+            <select id="soil_type" class="form-control" required>
+              <option value="" disabled selected>Select Soil Type</option>
+              {% for soil in options.soils %}
+                <option value="{{ soil }}">{{ soil }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" for="area" style="margin-bottom: 0;">
+                Land Area <span id="area-label-unit" class="unit">(Hectares)</span> <span style="color:red">*</span>
+              </label>
+              <div class="unit-switch">
+                <button type="button" id="unit-ha" class="unit-btn active">Ha</button>
+                <button type="button" id="unit-acre" class="unit-btn">Acres</button>
+              </div>
+            </div>
+            <input type="number" step="0.1" min="0.1" max="100" id="area" class="form-control" placeholder="e.g. 2.5" required>
+            <div class="form-hint">1 Hectare &approx; 2.47 Acres</div>
+          </div>
+        </div>
+
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 20px 0 14px; color: var(--dark); border-top: 1px solid var(--gray-border); padding-top: 16px;">
+          🌦️ 2. Weather & Crop Nutrition
+        </h3>
+
+        <!-- Weather Conditions -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="rainfall">Seasonal Rainfall <span class="unit">(mm)</span> <span style="color:red">*</span></label>
+            <input type="number" step="1" min="50" max="3500" id="rainfall" class="form-control" placeholder="e.g. 850" required>
+            <div class="form-hint">Typical Indian rainfall: 300 to 2000 mm</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="temperature">Average Temperature <span class="unit">(°C)</span> <span style="color:red">*</span></label>
+            <input type="number" step="0.5" min="5" max="50" id="temperature" class="form-control" placeholder="e.g. 26.5" required>
+            <div class="form-hint">Growing season average temperature</div>
+          </div>
+        </div>
+
+        <!-- Inputs Application -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="fertilizer">Fertilizer Application <span class="unit">(kg/ha)</span> <span style="color:red">*</span></label>
+            <input type="number" step="1" min="10" max="500" id="fertilizer" class="form-control" placeholder="e.g. 135" required>
+            <div class="form-hint">Total N-P-K & micronutrients applied</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="pesticide">Pesticide Usage <span class="unit">(kg/ha)</span> <span style="color:red">*</span></label>
+            <input type="number" step="0.1" min="0.0" max="10.0" id="pesticide" class="form-control" placeholder="e.g. 1.8" required>
+            <div class="form-hint">Crop protection active ingredients</div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label class="form-label" for="notes">Plot Notes / Variety Details <span class="unit">(Optional)</span></label>
+          <input type="text" id="notes" class="form-control" placeholder="e.g. Certified seed, canal irrigation, organic compost added">
+        </div>
+
+        <!-- Submit Button -->
+        <div style="margin-top: 24px;">
+          <button type="submit" id="predict-submit-btn" class="btn btn-primary btn-lg" style="width: 100%;">
+            🌾 Calculate Expected Yield & Advisory
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right Column: Results Card Container -->
+    <div class="result-card-container" id="result-container">
+      <div class="result-placeholder">
+        <div class="result-placeholder-icon">🌱</div>
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--dark); margin-bottom: 8px;">
+          Awaiting Farm Parameters
+        </h3>
+        <p style="font-size: 0.92rem; max-width: 320px; margin: 0 auto 18px;">
+          Fill out the form on the left or select a <strong>Quick Demo Preset</strong> to calculate your expected harvest yield.
+        </p>
+        <div style="font-size: 0.8rem; color: #166534; background: #e8f5e9; padding: 10px 14px; border-radius: var(--radius-md); display: inline-block;">
+          ✨ Output includes Tonnes/Ha, Total Farm Production, and Agronomic Advisory.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block title %}CropYield AI - Intelligent Crop Yield Prediction for Farmers{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-grid">
+      
+      <!-- Left Column: Content -->
+      <div class="hero-content">
+        <div class="hero-tag">
+          <span>🌱</span> AI-Powered Agricultural Intelligence
+        </div>
+        <h1 class="hero-title">
+          Know Your Expected Crop Yield Before You Harvest.
+        </h1>
+        <p class="hero-subtitle">
+          Enter your crop type, soil conditions, rainfall, temperature, and farm acreage. Our calibrated Machine Learning model delivers instant yield forecasts with scientific farming advisories.
+        </p>
+        <div class="hero-actions">
+          <a href="{{ url_for('predict_page') }}" class="btn btn-secondary btn-lg">
+            🌾 Predict Crop Yield Now
+          </a>
+          <a href="{{ url_for('assistant_page') }}" class="btn btn-outline btn-lg" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.4);">
+            🤖 Ask Kisan AI
+          </a>
+        </div>
+      </div>
+
+      <!-- Right Column: Auto-Rotating Farmer Image Slideshow -->
+      <div class="hero-image-box">
+        <div class="hero-slideshow" id="heroSlideshow" title="Hover to pause slideshow">
+          <!-- Real Farmers Live Tag -->
+          <div class="slide-live-tag">
+            <span class="slide-live-pulse"></span>
+            <span>Real Farmers • Real Impact</span>
+          </div>
+
+          <!-- Slide 1: Wheat Farmer -->
+          <div class="hero-slide active" data-badge="🌾 Wheat &amp; Grain Yield AI • Punjab" data-badge-icon="🌾">
+            <img src="{{ url_for('static', filename='images/farmer_hero_1.jpg') }}" alt="Proud Indian Wheat Farmer in Golden Field at Sunrise" class="hero-farmer-img">
+            <div class="slide-caption-overlay">
+              <div>
+                <div class="slide-caption-title">Golden Wheat Harvest</div>
+                <div class="slide-caption-sub">Ludhiana, Punjab • 4.8 t/ha achieved</div>
+              </div>
+              <span class="badge badge-optimal">Wheat AI</span>
+            </div>
+          </div>
+
+          <!-- Slide 2: Rice Paddy Farmer -->
+          <div class="hero-slide" data-badge="🌱 Rice &amp; Paddy Moisture Predictor • Andhra Pradesh" data-badge-icon="🌱">
+            <img src="{{ url_for('static', filename='images/farmer_hero_2.jpg') }}" alt="Indian Farmer in Lush Green Rice Paddy Field" class="hero-farmer-img">
+            <div class="slide-caption-overlay">
+              <div>
+                <div class="slide-caption-title">Lush Rice Paddy Field</div>
+                <div class="slide-caption-sub">Godavari Delta, AP • 5.6 t/ha predicted</div>
+              </div>
+              <span class="badge badge-optimal">Paddy AI</span>
+            </div>
+          </div>
+
+          <!-- Slide 3: Organic Produce Farmer -->
+          <div class="hero-slide" data-badge="🥕 Fresh Harvest &amp; Horticulture AI • Maharashtra" data-badge-icon="🥕">
+            <img src="{{ url_for('static', filename='images/farmer_hero_3.jpg') }}" alt="Smiling Indian Woman Farmer with Fresh Harvest" class="hero-farmer-img">
+            <div class="slide-caption-overlay">
+              <div>
+                <div class="slide-caption-title">Organic Vegetable Bounty</div>
+                <div class="slide-caption-sub">Nashik, Maharashtra • High Yield &amp; Quality</div>
+              </div>
+              <span class="badge badge-optimal">Horticulture AI</span>
+            </div>
+          </div>
+
+          <!-- Slide Navigation Dots -->
+          <div class="slide-dots">
+            <span class="slide-dot active" onclick="gotoHeroSlide(0)" title="Wheat Harvest"></span>
+            <span class="slide-dot" onclick="gotoHeroSlide(1)" title="Rice Paddy"></span>
+            <span class="slide-dot" onclick="gotoHeroSlide(2)" title="Organic Vegetables"></span>
+          </div>
+        </div>
+
+        <div class="hero-image-badge" id="heroBadge">
+          <span id="heroBadgeIcon">🌾</span>
+          <span id="heroBadgeText">Wheat &amp; Grain Yield AI • Punjab</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Quick Stats Bar -->
+<div class="container">
+  <div class="hero-stats">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.total_predictions }}</div>
+      <div class="stat-label">Predictions Logged</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ (metrics.get('r2_score', 0.9869) * 100) | round(1) }}%</div>
+      <div class="stat-label">Model Accuracy (R² Score)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ crops_count or 12 }}+</div>
+      <div class="stat-label">Supported Crops</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">Instant</div>
+      <div class="stat-label">Tonnes & Quintals Forecast</div>
+    </div>
+  </div>
+</div>
+
+<!-- Problem vs Solution Section -->
+<section class="section">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Why This Project Matters for Farmers</h2>
+      <p class="section-subtitle">
+        Traditional farming relies on guesswork. Precision agriculture with AI brings certainty and higher profitability.
+      </p>
+    </div>
+
+    <div class="comparison-grid">
+      <div class="comparison-card card-problem">
+        <h3><span>❌</span> The Farmer's Challenge</h3>
+        <ul class="feature-list">
+          <li><strong>Uncertain Yields:</strong> Inability to anticipate final harvest volume leads to poor pricing decisions.</li>
+          <li><strong>Fertilizer Overuse / Underuse:</strong> Applying incorrect fertilizer quantities degrades soil health and increases cost.</li>
+          <li><strong>Climate Vulnerability:</strong> Erratic monsoon rains and heatwaves create sudden, unexpected crop failures.</li>
+          <li><strong>Credit & Storage Bottlenecks:</strong> Banks and grain warehouses require reliable yield projections for loans and storage allocation.</li>
+        </ul>
+      </div>
+
+      <div class="comparison-card card-solution">
+        <h3><span>✅</span> The CropYield AI Solution</h3>
+        <ul class="feature-list">
+          <li><strong>Accurate Predictions:</strong> Get expected harvest in <em>Tonnes/Hectare</em> and <em>Quintals/Acre</em> instantly.</li>
+          <li><strong>Smart Agronomic Advisory:</strong> Automated warnings if rainfall or temperature threatens crop growth.</li>
+          <li><strong>Nutrient Optimization:</strong> Tailored fertilizer balance checks according to agronomic benchmarks.</li>
+          <li><strong>Printable Farmer Card:</strong> Generate an official 1-page summary for local agricultural officers and banks.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3-Step How It Works -->
+<section class="section" style="background-color: #f1f6f2;">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">How CropYield AI Works</h2>
+      <p class="section-subtitle">Three easy steps to forecast your seasonal harvest</p>
+    </div>
+
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <div class="step-icon">📝</div>
+        <h3 class="step-title">Enter Farm Parameters</h3>
+        <p class="step-desc">
+          Select your crop, state, season, soil type, land area, seasonal rainfall, temperature, and fertilizer usage.
+        </p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <div class="step-icon">⚙️</div>
+        <h3 class="step-title">Ensemble AI Analysis</h3>
+        <p class="step-desc">
+          Our Scikit-learn Random Forest model processes the interactions between climate, soil chemistry, and crop biology.
+        </p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <div class="step-icon">🌾</div>
+        <h3 class="step-title">Get Yield & Advisory</h3>
+        <p class="step-desc">
+          Receive your projected yield, total farm production, regional benchmark rating, and agronomist recommendations.
+        </p>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 36px;">
+      <a href="{{ url_for('predict_page') }}" class="btn btn-primary btn-lg">
+        Try It Now With Your Farm Details &rarr;
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Supported Crops Showcase -->
+<section class="section">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Major Supported Agricultural Crops</h2>
+      <p class="section-subtitle">
+        Calibrated with multi-region agronomic statistics across India
+      </p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px;">
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌾</div>
+        <div style="font-weight: 700; margin-top: 4px;">Rice</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~3.3 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌾</div>
+        <div style="font-weight: 700; margin-top: 4px;">Wheat</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~3.4 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌽</div>
+        <div style="font-weight: 700; margin-top: 4px;">Maize</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~3.2 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌱</div>
+        <div style="font-weight: 700; margin-top: 4px;">Cotton</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~1.7 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🎋</div>
+        <div style="font-weight: 700; margin-top: 4px;">Sugarcane</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~65 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌿</div>
+        <div style="font-weight: 700; margin-top: 4px;">Soybean</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~1.6 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🥜</div>
+        <div style="font-weight: 700; margin-top: 4px;">Groundnut</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~1.8 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🥔</div>
+        <div style="font-weight: 700; margin-top: 4px;">Potato</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~20.2 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🍅</div>
+        <div style="font-weight: 700; margin-top: 4px;">Tomato</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~25.1 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌱</div>
+        <div style="font-weight: 700; margin-top: 4px;">Chickpea</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~1.3 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌼</div>
+        <div style="font-weight: 700; margin-top: 4px;">Mustard</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~1.3 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌾</div>
+        <div style="font-weight: 700; margin-top: 4px;">Millets</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~1.4 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🧅</div>
+        <div style="font-weight: 700; margin-top: 4px;">Onion</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~18.2 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🍌</div>
+        <div style="font-weight: 700; margin-top: 4px;">Banana</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~41.5 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🍎</div>
+        <div style="font-weight: 700; margin-top: 4px;">Apple</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~12.5 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🍵</div>
+        <div style="font-weight: 700; margin-top: 4px;">Tea</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~2.15 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">☕</div>
+        <div style="font-weight: 700; margin-top: 4px;">Coffee</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~1.08 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🍠</div>
+        <div style="font-weight: 700; margin-top: 4px;">Turmeric</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~6.1 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🥥</div>
+        <div style="font-weight: 700; margin-top: 4px;">Coconut</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~11.2 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌶️</div>
+        <div style="font-weight: 700; margin-top: 4px;">Chilli</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~2.35 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌿</div>
+        <div style="font-weight: 700; margin-top: 4px;">Jute</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~2.55 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🌾</div>
+        <div style="font-weight: 700; margin-top: 4px;">Barley</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~2.85 t/ha avg</div>
+      </div>
+
+      <div class="card" style="text-align: center; padding: 18px;">
+        <div style="font-size: 2.2rem;">🧄</div>
+        <div style="font-weight: 700; margin-top: 4px;">Garlic</div>
+        <div style="font-size: 0.8rem; color: var(--gray-medium);">~5.45 t/ha avg</div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

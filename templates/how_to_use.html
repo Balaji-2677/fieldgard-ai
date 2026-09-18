@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+
+{% block title %}How to Use CropYield AI - Step-by-Step User Guide for Farmers{% endblock %}
+
+{% block content %}
+<!-- Guide Hero Section -->
+<section class="page-header" style="background: linear-gradient(135deg, #143d22 0%, #1e7e34 50%, #2e7d32 100%); color: #ffffff; padding: 50px 0 60px;">
+  <div class="container">
+    <div style="max-width: 820px; margin: 0 auto; text-align: center;">
+      <span class="badge" style="background: rgba(255,255,255,0.2); color: #fff; font-size: 0.85rem; padding: 6px 16px; margin-bottom: 14px; border: 1px solid rgba(255,255,255,0.3);">
+        📖 Farmer's Handbook &amp; User Manual
+      </span>
+      <h1 style="font-size: 2.6rem; font-weight: 800; margin-bottom: 14px; line-height: 1.2;">
+        How to Use the Crop Yield Prediction Website
+      </h1>
+      <p style="font-size: 1.15rem; color: #e2f0d9; line-height: 1.6; margin-bottom: 24px;">
+        A simple, clear guide explaining how to predict crop harvests, understand scientific field advisories, consult Kisan AI, and download official farmer cards.
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <a href="{{ url_for('predict_page') }}" class="btn btn-secondary btn-lg">
+          🌾 Go to Prediction Form
+        </a>
+        <a href="{{ url_for('assistant_page') }}" class="btn btn-outline btn-lg" style="color: #fff; border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.15);">
+          🤖 Ask Kisan AI
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Quick Jump Bar -->
+<div class="container" style="margin-top: -24px; margin-bottom: 40px; position: relative; z-index: 5;">
+  <div class="card" style="padding: 16px 24px; box-shadow: var(--shadow-md); border-radius: var(--radius-full); display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; text-align: center;">
+    <span style="font-weight: 700; color: var(--primary-dark); display: flex; align-items: center; gap: 6px;">
+      ⚡ Quick Jump:
+    </span>
+    <a href="#step-register" class="btn-link" style="color: var(--gray-dark); font-weight: 600; font-size: 0.9rem;">1. Sign Up / Login</a>
+    <span style="color: var(--gray-border);">|</span>
+    <a href="#step-predict" class="btn-link" style="color: var(--gray-dark); font-weight: 600; font-size: 0.9rem;">2. Predicting Yield</a>
+    <span style="color: var(--gray-border);">|</span>
+    <a href="#step-results" class="btn-link" style="color: var(--gray-dark); font-weight: 600; font-size: 0.9rem;">3. Results &amp; Advisory</a>
+    <span style="color: var(--gray-border);">|</span>
+    <a href="#step-assistant" class="btn-link" style="color: var(--gray-dark); font-weight: 600; font-size: 0.9rem;">4. Kisan AI</a>
+    <span style="color: var(--gray-border);">|</span>
+    <a href="#step-languages" class="btn-link" style="color: var(--gray-dark); font-weight: 600; font-size: 0.9rem;">5. Indian Languages</a>
+    <span style="color: var(--gray-border);">|</span>
+    <a href="#step-dashboard" class="btn-link" style="color: var(--gray-dark); font-weight: 600; font-size: 0.9rem;">6. Map &amp; History</a>
+  </div>
+</div>
+
+<!-- Step-by-Step Core Walkthrough -->
+<section class="section" style="padding-top: 10px;">
+  <div class="container" style="max-width: 1050px;">
+
+    <!-- Section Header -->
+    <div class="section-header" style="text-align: center; margin-bottom: 48px;">
+      <h2 class="section-title">Complete 6-Step Guide for Farmers</h2>
+      <p class="section-subtitle">
+        Everything you need to know from creating an account to predicting harvest and printing your card.
+      </p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 32px;">
+
+      <!-- STEP 1: Registration & Login -->
+      <div id="step-register" class="card" style="border-left: 6px solid var(--primary); padding: 32px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="background: var(--primary); color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800;">
+            1
+          </div>
+          <div>
+            <span class="badge badge-good" style="margin-bottom: 4px;">Free Farmer Access</span>
+            <h3 style="font-size: 1.4rem; color: var(--dark); margin: 0;">Create Account &amp; Log In</h3>
+          </div>
+        </div>
+
+        <p style="color: var(--gray-dark); line-height: 1.7; font-size: 1rem;">
+          Before making predictions, you need a free farmer account so all your predictions are securely saved to your personal history.
+        </p>
+
+        <div style="background: #f8faf8; border: 1px solid #e5e7eb; border-radius: var(--radius-md); padding: 18px; margin: 16px 0;">
+          <h4 style="color: var(--primary-dark); margin-bottom: 8px; font-size: 1rem;">📝 Easy Registration Steps:</h4>
+          <ol style="margin-left: 20px; line-height: 1.8; color: var(--gray-dark);">
+            <li>Click <strong><a href="{{ url_for('register') }}">📝 Register</a></strong> on the top right navigation bar.</li>
+            <li>Enter your <strong>Full Name</strong>, <strong>Email Address</strong>, <strong>Mobile Number</strong>, and set a password.</li>
+            <li>Select your <strong>State / Union Territory</strong> from all 28 states &amp; 8 UTs of India.</li>
+            <li>Enter your typical <strong>Farm Size</strong> (in Hectares or Acres).</li>
+            <li>Click <strong>Register &amp; Continue</strong>. You will be instantly logged in!</li>
+          </ol>
+        </div>
+        <div style="font-size: 0.9rem; color: var(--gray-medium);">
+          💡 <em>Already have an account? Just click <strong><a href="{{ url_for('login') }}">🔑 Login</a></strong> and enter your email and password.</em>
+        </div>
+      </div>
+
+      <!-- STEP 2: Navigating to Prediction Page & Filling Parameters -->
+      <div id="step-predict" class="card" style="border-left: 6px solid var(--secondary); padding: 32px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="background: var(--secondary); color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800;">
+            2
+          </div>
+          <div>
+            <span class="badge badge-optimal" style="margin-bottom: 4px;">Core Feature</span>
+            <h3 style="font-size: 1.4rem; color: var(--dark); margin: 0;">Fill In Your Farm &amp; Crop Details</h3>
+          </div>
+        </div>
+
+        <p style="color: var(--gray-dark); line-height: 1.7;">
+          Go to the <strong><a href="{{ url_for('predict_page') }}">Predict Yield</a></strong> page. The form asks for real-world agricultural conditions:
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 18px 0;">
+          <div style="background: #ffffff; border: 1.5px solid #e5e7eb; border-radius: var(--radius-md); padding: 16px;">
+            <div style="font-weight: 700; color: var(--primary); margin-bottom: 6px;">🌾 1. Select Crop</div>
+            <div style="font-size: 0.9rem; color: var(--gray-dark); line-height: 1.5;">
+              Choose from <strong>{{ crops_count or 32 }}+ major crops</strong> including Rice, Wheat, Cotton, Sugarcane, Onion, Apple, Tea, Banana, Turmeric, Pulses, and more.
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1.5px solid #e5e7eb; border-radius: var(--radius-md); padding: 16px;">
+            <div style="font-weight: 700; color: var(--primary); margin-bottom: 6px;">📍 2. State / Region</div>
+            <div style="font-size: 0.9rem; color: var(--gray-dark); line-height: 1.5;">
+              Select your farm location from <strong>all {{ states_count or 36 }} Indian States &amp; Union Territories</strong>.
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1.5px solid #e5e7eb; border-radius: var(--radius-md); padding: 16px;">
+            <div style="font-weight: 700; color: var(--primary); margin-bottom: 6px;">☀️ 3. Season &amp; Soil</div>
+            <div style="font-size: 0.9rem; color: var(--gray-dark); line-height: 1.5;">
+              Choose your cropping season (<em>Kharif, Rabi, Zaid, Whole Year</em>) and soil type (<em>Alluvial, Black, Clayey, Red, Sandy Loam, Laterite</em>).
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1.5px solid #e5e7eb; border-radius: var(--radius-md); padding: 16px;">
+            <div style="font-weight: 700; color: var(--primary); margin-bottom: 6px;">📐 4. Land Area</div>
+            <div style="font-size: 0.9rem; color: var(--gray-dark); line-height: 1.5;">
+              Enter your farmland size. Use the handy <strong>Ha / Acres toggle switch</strong> to type in whatever unit you prefer! (1 Ha &approx; 2.47 Acres).
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1.5px solid #e5e7eb; border-radius: var(--radius-md); padding: 16px;">
+            <div style="font-weight: 700; color: var(--primary); margin-bottom: 6px;">🌧️ 5. Rainfall &amp; Temperature</div>
+            <div style="font-size: 0.9rem; color: var(--gray-dark); line-height: 1.5;">
+              Enter expected seasonal rainfall in millimeters (mm) and average temperature in Celsius (°C).
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1.5px solid #e5e7eb; border-radius: var(--radius-md); padding: 16px;">
+            <div style="font-weight: 700; color: var(--primary); margin-bottom: 6px;">🧪 6. Fertilizer &amp; Pesticides</div>
+            <div style="font-size: 0.9rem; color: var(--gray-dark); line-height: 1.5;">
+              Enter total N-P-K fertilizer application in kg/ha and pesticide usage in kg/ha.
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 16px; display: flex; align-items: flex-start; gap: 12px;">
+          <span style="font-size: 1.5rem;">✨</span>
+          <div>
+            <strong style="color: #92400e;">Farmer Pro-Tip: Try One-Click Autofill!</strong>
+            <p style="margin-top: 4px; font-size: 0.9rem; color: #78350f; line-height: 1.5;">
+              Don't know your exact local rainfall or fertilizer dosage? Simply click any of the <strong>✨ Quick Autofill Scenario buttons</strong> (e.g. <em>"🌾 Punjab Wheat"</em>, <em>"🌱 AP Rice"</em>, <em>"🧅 Maharashtra Onion"</em>, <em>"🍎 Kashmir Apple"</em>). The form will automatically populate with optimal scientific values!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Reading Predictions & Understanding the Units -->
+      <div id="step-results" class="card" style="border-left: 6px solid #10b981; padding: 32px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="background: #10b981; color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800;">
+            3
+          </div>
+          <div>
+            <span class="badge badge-optimal" style="margin-bottom: 4px;">Instant ML Forecast</span>
+            <h3 style="font-size: 1.4rem; color: var(--dark); margin: 0;">Understand Your Yield Result &amp; Advisory</h3>
+          </div>
+        </div>
+
+        <p style="color: var(--gray-dark); line-height: 1.7;">
+          After clicking <strong>🌾 Calculate Expected Yield</strong>, our Random Forest ML Model ($R^2 = 98.82\%$) produces your complete forecast in less than a second:
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 18px 0;">
+          <div style="background: #e8f5e9; border: 1.5px solid #a7f3d0; border-radius: var(--radius-md); padding: 16px; text-align: center;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #155724; text-transform: uppercase;">Per Hectare Yield</div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #1e7e34; margin: 4px 0;">3.45 t/ha</div>
+            <div style="font-size: 0.78rem; color: #2d6a4f;">Tonnes per Hectare</div>
+          </div>
+
+          <div style="background: #e0f2fe; border: 1.5px solid #bae6fd; border-radius: var(--radius-md); padding: 16px; text-align: center;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #0369a1; text-transform: uppercase;">Per Acre Yield</div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #0284c7; margin: 4px 0;">13.96 q/acre</div>
+            <div style="font-size: 0.78rem; color: #0369a1;">Quintals per Acre</div>
+          </div>
+
+          <div style="background: #fef3c7; border: 1.5px solid #fde68a; border-radius: var(--radius-md); padding: 16px; text-align: center;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #92400e; text-transform: uppercase;">Total Farm Harvest</div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #d97706; margin: 4px 0;">8.63 Tonnes</div>
+            <div style="font-size: 0.78rem; color: #92400e;">Entire Farm Production</div>
+          </div>
+        </div>
+
+        <h4 style="color: var(--dark); margin: 20px 0 8px;">🌱 Scientific Agronomic Advisory:</h4>
+        <ul style="margin-left: 20px; line-height: 1.8; color: var(--gray-dark);">
+          <li><strong>Climate Suitability:</strong> Alerts you if temperature is too hot/cold or rainfall is inadequate for your specific crop.</li>
+          <li><strong>Fertilizer Balance:</strong> Checks if your N-P-K application is within ICAR recommended thresholds.</li>
+          <li><strong>3 Actionable Agronomist Tips:</strong> Best practices for weeding, critical irrigation stages, and pest control.</li>
+          <li><strong>🖨️ Print Farmer Yield Card:</strong> Click this button to generate a clean, official printable card to show agricultural extension officers or bank loan managers!</li>
+        </ul>
+      </div>
+
+      <!-- STEP 4: Kisan AI Assistant -->
+      <div id="step-assistant" class="card" style="border-left: 6px solid #8b5cf6; padding: 32px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="background: #8b5cf6; color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800;">
+            4
+          </div>
+          <div>
+            <span class="badge" style="background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; margin-bottom: 4px;">24/7 Virtual Agronomist</span>
+            <h3 style="font-size: 1.4rem; color: var(--dark); margin: 0;">Ask Kisan AI Any Agricultural Doubt</h3>
+          </div>
+        </div>
+
+        <p style="color: var(--gray-dark); line-height: 1.7;">
+          Whenever you encounter pest attacks, disease symptoms, or have questions about sowing schedules and government subsidies, talk with <strong><a href="{{ url_for('assistant_page') }}">Kisan AI</a></strong>:
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 16px 0;">
+          <div style="background: #f8faf8; border: 1px solid #e5e7eb; border-radius: var(--radius-sm); padding: 14px;">
+            <strong>🐛 Pest &amp; Disease Diagnosis</strong>
+            <p style="font-size: 0.88rem; color: var(--gray-medium); margin-top: 4px;">
+              Ask questions like: <em>"Why are rice leaves turning yellow?"</em> or <em>"How to stop pink bollworm in cotton?"</em>
+            </p>
+          </div>
+          <div style="background: #f8faf8; border: 1px solid #e5e7eb; border-radius: var(--radius-sm); padding: 14px;">
+            <strong>🌱 Sowing Schedules &amp; Seeds</strong>
+            <p style="font-size: 0.88rem; color: var(--gray-medium); margin-top: 4px;">
+              Ask: <em>"When to sow wheat in Punjab?"</em> or <em>"What high yielding seeds are best for maize?"</em>
+            </p>
+          </div>
+          <div style="background: #f8faf8; border: 1px solid #e5e7eb; border-radius: var(--radius-sm); padding: 14px;">
+            <strong>🏛️ Government Welfare Schemes</strong>
+            <p style="font-size: 0.88rem; color: var(--gray-medium); margin-top: 4px;">
+              Ask: <em>"How to get PM-KISAN ₹6000?"</em> or <em>"PM Fasal Bima Yojana crop insurance details."</em>
+            </p>
+          </div>
+        </div>
+        <div style="font-size: 0.9rem; color: var(--gray-medium);">
+          💡 <em>You can access Kisan AI either from the top navigation bar or by clicking the glowing green <strong>"🤖 Ask Kisan AI"</strong> floating button at the bottom right corner of any page!</em>
+        </div>
+      </div>
+
+      <!-- STEP 5: Selecting Indian Languages -->
+      <div id="step-languages" class="card" style="border-left: 6px solid #0284c7; padding: 32px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="background: #0284c7; color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800;">
+            5
+          </div>
+          <div>
+            <span class="badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; margin-bottom: 4px;">Multilingual India</span>
+            <h3 style="font-size: 1.4rem; color: var(--dark); margin: 0;">Select Your Preferred Indian Language</h3>
+          </div>
+        </div>
+
+        <p style="color: var(--gray-dark); line-height: 1.7;">
+          We believe language should never be a barrier for Indian farmers. You can translate the entire website into your mother tongue:
+        </p>
+
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: var(--radius-md); padding: 20px; margin: 16px 0;">
+          <h4 style="color: #0369a1; margin-bottom: 10px; font-size: 1rem;">🌐 Supported Indian Languages:</h4>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">English (English)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">हिन्दी (Hindi)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">తెలుగు (Telugu)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">தமிழ் (Tamil)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">ಕನ್ನಡ (Kannada)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">മലയാളം (Malayalam)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">मराठी (Marathi)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">ગુજરાતી (Gujarati)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">বাংলা (Bengali)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">ਪੰਜਾਬੀ (Punjabi)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">ଓଡ଼ିଆ (Odia)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">অসমীয়া (Assamese)</span>
+            <span class="badge" style="background: #fff; border: 1px solid #cbd5e1; padding: 6px 14px; font-size: 0.88rem;">اردو (Urdu)</span>
+          </div>
+
+          <p style="margin-top: 14px; font-size: 0.92rem; color: var(--gray-dark); line-height: 1.6;">
+            <strong>How to Change Language:</strong> Look at the <strong>top announcement bar</strong> on any page. Click the language dropdown menu labeled <strong>"🌐 Language"</strong> and choose your desired tongue. The entire website translates immediately!
+          </p>
+        </div>
+      </div>
+
+      <!-- STEP 6: Interactive Dashboard & Map -->
+      <div id="step-dashboard" class="card" style="border-left: 6px solid #d97706; padding: 32px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="background: #d97706; color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800;">
+            6
+          </div>
+          <div>
+            <span class="badge" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; margin-bottom: 4px;">Analytics &amp; History</span>
+            <h3 style="font-size: 1.4rem; color: var(--dark); margin: 0;">Explore Field History &amp; Interactive India Map</h3>
+          </div>
+        </div>
+
+        <p style="color: var(--gray-dark); line-height: 1.7;">
+          Visit the <strong><a href="{{ url_for('dashboard_page') }}">Analytics &amp; History</a></strong> page to unlock data-driven farming insights:
+        </p>
+
+        <ul style="margin-left: 20px; line-height: 1.8; color: var(--gray-dark);">
+          <li><strong>Interactive Leaflet Map:</strong> Zoom and click on markers across all 36 Indian states/UTs to view average regional yields, key crops, and typical rainfall. Click <em>"Predict for [State]"</em> to jump directly to prediction!</li>
+          <li><strong>Visual Charts:</strong> View Chart.js analytics of Average Yield by Crop, Soil Type Distribution, and Rainfall vs. Yield scatter plots.</li>
+          <li><strong>Historical Records Table:</strong> Search by farmer name or state, filter by crop, or download the full dataset as a <strong>CSV Spreadsheet</strong> for your personal records.</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Farmer FAQs Accordion -->
+    <div style="margin-top: 60px;">
+      <div class="section-header" style="text-align: center; margin-bottom: 36px;">
+        <h2 class="section-title">Frequently Asked Questions</h2>
+        <p class="section-subtitle">Common queries from farmers using the portal</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card" style="padding: 20px;">
+          <h4 style="color: var(--primary-dark); margin-bottom: 8px;">❓ Is CropYield AI completely free to use?</h4>
+          <p style="color: var(--gray-dark); font-size: 0.95rem; line-height: 1.6;">
+            Yes! CropYield AI is 100% free for all farmers, agronomists, and agricultural students across India. There are no fees or hidden charges.
+          </p>
+        </div>
+
+        <div class="card" style="padding: 20px;">
+          <h4 style="color: var(--primary-dark); margin-bottom: 8px;">❓ How accurate are the yield predictions?</h4>
+          <p style="color: var(--gray-dark); font-size: 0.95rem; line-height: 1.6;">
+            Our machine learning model is trained on 8,960 official agro-climatic records calibrated with ICAR and Directorate of Economics and Statistics benchmarks, achieving an $R^2$ accuracy score of <strong>98.82%</strong>.
+          </p>
+        </div>
+
+        <div class="card" style="padding: 20px;">
+          <h4 style="color: var(--primary-dark); margin-bottom: 8px;">❓ Can I show the Farmer Yield Card to bank officers for crop loans?</h4>
+          <p style="color: var(--gray-dark); font-size: 0.95rem; line-height: 1.6;">
+            Yes! When you click "Print Farmer Yield Card", you get a clean 1-page summary detailing your crop, land acreage, and anticipated harvest volumes in Tonnes and Quintals, useful for credit estimation and storage bookings.
+          </p>
+        </div>
+
+        <div class="card" style="padding: 20px;">
+          <h4 style="color: var(--primary-dark); margin-bottom: 8px;">❓ Who can I call for emergency agricultural help?</h4>
+          <p style="color: var(--gray-dark); font-size: 0.95rem; line-height: 1.6;">
+            You can call the Government of India Kisan Call Center toll-free at <strong>1800-180-1551</strong> (available in 22 languages from 6:00 AM to 10:00 PM daily).
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Final CTA Banner -->
+    <div style="background: linear-gradient(135deg, #155724 0%, #1e7e34 100%); color: #fff; padding: 40px; border-radius: var(--radius-lg); text-align: center; margin-top: 50px;">
+      <h3 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 10px;">Ready to Predict Your Crop Harvest?</h3>
+      <p style="color: #e2f0d9; font-size: 1.05rem; margin-bottom: 24px; max-width: 600px; margin-left: auto; margin-right: auto;">
+        Join thousands of farmers making data-driven decisions to increase harvest yields and boost profits.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+        <a href="{{ url_for('predict_page') }}" class="btn btn-secondary btn-lg">
+          🌾 Predict Crop Yield Now
+        </a>
+        <a href="{{ url_for('assistant_page') }}" class="btn btn-outline btn-lg" style="color: #fff; border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.15);">
+          🤖 Chat with Kisan AI
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}

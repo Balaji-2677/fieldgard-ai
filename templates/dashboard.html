@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Farm Analytics & Prediction History - CropYield AI{% endblock %}
+
+{% block head %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Leaflet.js CDN for Location Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="margin-top: 30px;">
+  <!-- Header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-size: 2.2rem; font-weight: 800; color: var(--dark); display: flex; align-items: center; gap: 10px;">
+        <span>📊</span> Agricultural Analytics & Field History
+      </h1>
+      <p style="color: var(--gray-medium); font-size: 1rem;">
+        Review historical yield predictions, compare crop performance, and analyze climate trends.
+      </p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <a href="{{ url_for('predict_page') }}" class="btn btn-primary btn-sm">
+        🌾 New Prediction
+      </a>
+      <a href="{{ url_for('api_export_csv') }}" class="btn btn-outline btn-sm">
+        📥 Export All to CSV
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Summary Cards (Predictions | Accuracy | Avg Yield | Top Crop) -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 28px;">
+    <div class="card" style="padding: 20px; border-top: 4px solid var(--primary);">
+      <div style="font-size: 0.85rem; color: var(--gray-medium); margin-bottom: 6px;">Total Predictions</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary);">{{ stats.total_predictions }}</div>
+      <div style="font-size: 0.75rem; color: var(--gray-medium); margin-top: 4px;">Saved in local SQLite database</div>
+    </div>
+
+    <div class="card" style="padding: 20px; border-top: 4px solid #0284c7;">
+      <div style="font-size: 0.85rem; color: var(--gray-medium); margin-bottom: 6px;">Model Accuracy</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: #0284c7;">{{ (metrics.get('r2_score', 0.9869) * 100) | round(1) }}%</div>
+      <div style="font-size: 0.75rem; color: var(--gray-medium); margin-top: 4px;">Random Forest R² Score</div>
+    </div>
+
+    <div class="card" style="padding: 20px; border-top: 4px solid var(--secondary);">
+      <div style="font-size: 0.85rem; color: var(--gray-medium); margin-bottom: 6px;">Average Predicted Yield</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: var(--secondary);">{{ stats.avg_yield }} <span style="font-size: 1rem; font-weight: 500;">t/ha</span></div>
+      <div style="font-size: 0.75rem; color: var(--gray-medium); margin-top: 4px;">Across all crops & seasons</div>
+    </div>
+
+    <div class="card" style="padding: 20px; border-top: 4px solid #16a34a;">
+      <div style="font-size: 0.85rem; color: var(--gray-medium); margin-bottom: 6px;">Top Cultivated Crop</div>
+      <div style="font-size: 2rem; font-weight: 800; color: #16a34a;">{{ stats.top_crop }}</div>
+      <div style="font-size: 0.75rem; color: var(--gray-medium); margin-top: 4px;">Most frequent farmer query</div>
+    </div>
+  </div>
+
+  <!-- Interactive Charts Grid (📊 Crop Comparison & 🌱 Soil Distribution) -->
+  <div class="dashboard-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3 class="chart-title">📊 Crop Comparison: Average Yield by Crop</h3>
+      </div>
+      <div style="height: 280px; position: relative;">
+        <canvas id="cropYieldChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3 class="chart-title">🌱 Soil Type Distribution</h3>
+      </div>
+      <div style="height: 280px; position: relative;">
+        <canvas id="soilDoughnutChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📈 Yield Graph (Rainfall vs. Yield Correlation) -->
+  <div class="chart-card" style="margin-bottom: 28px;">
+    <div class="chart-header">
+      <h3 class="chart-title">📈 Yield Graph: Seasonal Rainfall vs. Predicted Yield</h3>
+    </div>
+    <div style="height: 280px; position: relative;">
+      <canvas id="rainfallScatterChart"></canvas>
+    </div>
+  </div>
+
+  <!-- 🗺️ Location Map -->
+  <div class="chart-card" style="margin-bottom: 30px;">
+    <div class="chart-header">
+      <h3 class="chart-title">🗺️ Location Map: Major Agricultural Belts of India</h3>
+      <span style="font-size: 0.82rem; color: var(--gray-medium);">Click any regional pin to view local crops, rainfall, and launch targeted predictions</span>
+    </div>
+    <div id="agriMap" style="height: 380px; width: 100%; border-radius: var(--radius-md); z-index: 1;"></div>
+  </div>
+
+  <!-- Prediction History Table -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div style="font-weight: 700; font-size: 1.1rem; color: var(--dark);">
+        📋 Recent Farm Predictions History
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+        <div class="table-search">
+          <input type="text" id="history-search" class="form-control" style="padding: 6px 12px; font-size: 0.85rem;" placeholder="Search farmer, state, or notes...">
+        </div>
+
+        <select id="history-crop-filter" class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.85rem;">
+          <option value="all">All Crops</option>
+          {% for c in crops %}
+            <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date & ID</th>
+            <th>Farmer / Location</th>
+            <th>Crop & Season</th>
+            <th>Soil Type</th>
+            <th>Area</th>
+            <th>Rain / Temp</th>
+            <th>Predicted Yield</th>
+            <th>Total Harvest</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="history-table-body">
+          {% for row in history %}
+          <tr class="history-row" id="row-{{ row.id }}" data-crop="{{ row.crop }}">
+            <td>
+              <div style="font-weight: 600;">#{{ row.id }}</div>
+              <div style="font-size: 0.75rem; color: var(--gray-medium);">{{ row.created_at[:10] }}</div>
+            </td>
+            <td>
+              <div style="font-weight: 600;">{{ row.farmer_name }}</div>
+              <div style="font-size: 0.78rem; color: var(--gray-medium);">{{ row.state }}</div>
+            </td>
+            <td>
+              <span style="font-weight: 600;">{{ row.crop }}</span>
+              <span style="font-size: 0.75rem; color: var(--gray-medium);">({{ row.season }})</span>
+            </td>
+            <td>{{ row.soil_type }}</td>
+            <td>{{ row.area_ha }} Ha</td>
+            <td>{{ row.rainfall_mm }}mm / {{ row.temp_c }}°C</td>
+            <td>
+              <strong style="color: var(--primary-dark); font-size: 1rem;">
+                {{ row.predicted_yield_t_ha }}
+              </strong> t/ha
+            </td>
+            <td>
+              <strong>{{ row.total_production_tonnes }}</strong> Tonnes
+            </td>
+            <td>
+              {% if 'Optimal' in row.yield_status %}
+                <span class="badge badge-optimal">🌟 Optimal</span>
+              {% elif 'Good' in row.yield_status %}
+                <span class="badge badge-good">✅ Good</span>
+              {% else %}
+                <span class="badge badge-warning">⚠️ Low</span>
+              {% endif %}
+            </td>
+            <td>
+              <button class="btn btn-outline btn-sm" style="padding: 3px 8px; font-size: 0.75rem; color: #dc2626; border-color: #fca5a5;" onclick="deleteRecord({{ row.id }})">
+                🗑️
+              </button>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="10" style="text-align: center; padding: 30px; color: var(--gray-medium);">
+              No predictions recorded yet. Make your first prediction to see records here!
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
