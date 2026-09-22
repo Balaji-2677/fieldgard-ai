@@ -35,7 +35,10 @@ from ml.ai_assistant import answer_farming_doubt
 from ml.weather_service import get_weather_for_state, get_weather_by_coords
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "crop-yield-farmer-ai-2026-secret"
+app.config["SECRET_KEY"] = os.environ.get(
+    "SECRET_KEY",
+    "development-secret-key"
+)
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
