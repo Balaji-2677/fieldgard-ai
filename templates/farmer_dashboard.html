@@ -73,8 +73,10 @@
             <div style="font-size: 1rem; color: var(--dark); font-weight: 600;">{{ user.phone or 'Not provided' }}</div>
           </div>
           <div>
-            <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--gray-medium); font-weight: 600;">Primary State / UT</div>
-            <div style="font-size: 1rem; color: var(--dark); font-weight: 600;">📍 {{ user.state or 'Not specified' }}</div>
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--gray-medium); font-weight: 600;">Location (District & State)</div>
+            <div style="font-size: 1rem; color: var(--dark); font-weight: 600;">
+              📍 {{ (user.district ~ ', ' ~ user.state) if user.district else (user.state or 'Not specified') }}
+            </div>
           </div>
           <div>
             <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--gray-medium); font-weight: 600;">Registered Farm Land Area</div>
@@ -100,10 +102,17 @@
           </div>
           <div class="form-group" style="margin-bottom: 12px;">
             <label style="font-size: 0.8rem; font-weight: 600;">Primary State</label>
-            <select name="state" class="form-control" style="font-size: 0.9rem; padding: 7px 10px;">
+            <select name="state" id="profile-state-select" class="form-control" style="font-size: 0.9rem; padding: 7px 10px;" onchange="updateFarmerDistricts()">
+              <option value="">Select State</option>
               {% for s in states %}
                 <option value="{{ s }}" {% if s == user.state %}selected{% endif %}>{{ s }}</option>
               {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 0.8rem; font-weight: 600;">District</label>
+            <select name="district" id="profile-district-select" class="form-control" style="font-size: 0.9rem; padding: 7px 10px;">
+              <option value="{{ user.district or '' }}">{{ user.district or 'Choose District' }}</option>
             </select>
           </div>
           <div class="form-group" style="margin-bottom: 16px;">
@@ -152,7 +161,7 @@
           <span style="font-size: 2rem;">🌦️</span>
           <div>
             <h4 style="font-size: 1.05rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
-              Live Weather Auto-Sync Enabled for {{ user.state or 'India' }}
+              Live Weather Auto-Sync Enabled for {{ (user.district ~ ', ' ~ user.state) if user.district else (user.state or 'India') }}
             </h4>
             <p style="font-size: 0.88rem; color: #15803d; margin: 0; line-height: 1.5;">
               When you launch a new yield prediction, your seasonal rainfall and average ambient temperature will be auto-calculated using satellite meteorology. You can also consult the toll-free Kisan Call Center at <strong>1800-180-1551</strong> anytime.
@@ -180,7 +189,7 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Date & ID</th>
+            <th>Date & Location</th>
             <th>Crop & Season</th>
             <th>Soil Type</th>
             <th>Field Area</th>
@@ -197,6 +206,9 @@
             <td>
               <div style="font-weight: 600;">#{{ row.id }}</div>
               <div style="font-size: 0.75rem; color: var(--gray-medium);">{{ row.created_at[:10] }}</div>
+              <div style="font-size: 0.74rem; color: var(--primary-dark); font-weight: 600; margin-top: 2px;">
+                📍 {{ (row.district ~ ', ' ~ row.state) if row.district else row.state }}
+              </div>
             </td>
             <td>
               <span style="font-weight: 700; color: var(--dark);">{{ row.crop }}</span>
@@ -245,7 +257,59 @@
 
 </div>
 
+<!-- Embedded State-Districts Map -->
+<script id="farmer-state-districts" type="application/json">{{ (state_districts or {}) | tojson }}</script>
+
 <script>
+let farmerDistrictsMap = {};
+try {
+  farmerDistrictsMap = JSON.parse(document.getElementById("farmer-state-districts").textContent);
+} catch (e) {
+  console.warn("Could not parse district mapping:", e);
+}
+
+function updateFarmerDistricts(preselectedDistrict) {
+  const stateSelect = document.getElementById("profile-state-select");
+  const districtSelect = document.getElementById("profile-district-select");
+  if (!stateSelect || !districtSelect) return;
+  const state = stateSelect.value;
+  const districts = farmerDistrictsMap[state] || [];
+
+  districtSelect.innerHTML = "";
+  if (districts.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Select State First";
+    districtSelect.appendChild(opt);
+    return;
+  }
+
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.textContent = "Choose District";
+  districtSelect.appendChild(defaultOpt);
+
+  const target = (preselectedDistrict !== undefined) ? preselectedDistrict : "{{ user.district or '' }}";
+
+  districts.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = d;
+    if (target && d.toLowerCase() === target.toLowerCase()) {
+      opt.selected = true;
+    }
+    districtSelect.appendChild(opt);
+  });
+}
+
+// Initialize district dropdown on page load
+document.addEventListener("DOMContentLoaded", () => {
+  const stateSelect = document.getElementById("profile-state-select");
+  if (stateSelect && stateSelect.value) {
+    updateFarmerDistricts("{{ user.district or '' }}");
+  }
+});
+
 function toggleEditProfile() {
   const viewMode = document.getElementById("profile-view-mode");
   const editMode = document.getElementById("profile-edit-mode");
@@ -254,6 +318,7 @@ function toggleEditProfile() {
     editMode.style.display = "block";
     viewMode.style.display = "none";
     btn.textContent = "✕ Close";
+    updateFarmerDistricts("{{ user.district or '' }}");
   } else {
     editMode.style.display = "none";
     viewMode.style.display = "block";

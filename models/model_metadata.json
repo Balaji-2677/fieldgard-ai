@@ -1,6 +1,6 @@
 {
     "model_name": "Agricultural Crop Yield Predictor (Random Forest Ensemble)",
-    "trained_at": "2026-09-18 22:18:34",
+    "trained_at": "2026-09-22 23:16:51",
     "total_records": 8960,
     "categorical_features": [
         "Crop",

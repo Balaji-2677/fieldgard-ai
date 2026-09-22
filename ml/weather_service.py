@@ -9,6 +9,13 @@ import json
 import urllib.request
 import urllib.error
 
+from ml.district_data import (
+    STATE_DISTRICTS,
+    DISTRICT_COORDINATES,
+    get_districts_for_state,
+    get_district_coords,
+)
+
 # Coordinates (Latitude, Longitude) for all 36 Indian States & Union Territories
 STATE_COORDINATES = {
     "Andaman and Nicobar Islands": (11.6234, 92.7265),
@@ -227,9 +234,27 @@ def get_nearest_state(lat: float, lon: float) -> str:
     return closest_state
 
 
-def get_weather_for_state(state: str, season: str = None) -> dict:
+def get_nearest_district(lat: float, lon: float, state: str = None) -> str:
+    """Finds the nearest district for given coordinates, optionally constrained to state."""
+    min_dist = float("inf")
+    closest_district = None
+    for (st, dist), (d_lat, d_lon) in DISTRICT_COORDINATES.items():
+        if state and st.lower() != state.lower():
+            continue
+        dist_calc = math.hypot(lat - d_lat, lon - d_lon)
+        if dist_calc < min_dist:
+            min_dist = dist_calc
+            closest_district = dist
+    if not closest_district and state:
+        districts = get_districts_for_state(state)
+        if districts:
+            return districts[0]
+    return closest_district or "Ludhiana"
+
+
+def get_weather_for_state(state: str, season: str = None, district: str = None) -> dict:
     """
-    Fetches real-time and seasonal weather for a given state.
+    Fetches real-time and seasonal weather for a given state & district.
     Uses live Open-Meteo API when available, enriched with ICAR seasonal normals.
     Guarantees fast, robust, and accurate response even if offline.
     """
@@ -237,6 +262,11 @@ def get_weather_for_state(state: str, season: str = None) -> dict:
         state = "Punjab"
 
     lat, lon = STATE_COORDINATES[state]
+    if district:
+        dist_coords = get_district_coords(state, district)
+        if dist_coords:
+            lat, lon = dist_coords
+
     season = season or "Kharif"
 
     # Default fallback benchmarks
@@ -285,9 +315,11 @@ def get_weather_for_state(state: str, season: str = None) -> dict:
     if live_weather_success and humidity > 80 and season == "Kharif":
         adjusted_rainfall = min(3500, int(expected_rain * 1.08))
 
+    location_display = f"{district}, {state}" if district else state
     return {
         "success": True,
         "state": state,
+        "district": district or "",
         "season": season,
         "coordinates": {"lat": lat, "lon": lon},
         "temperature_c": round(current_temp, 1),
@@ -297,17 +329,19 @@ def get_weather_for_state(state: str, season: str = None) -> dict:
         "icon": condition_icon,
         "source": source,
         "live": live_weather_success,
-        "message": f"Auto-synced {condition_icon} {current_temp}°C & {adjusted_rainfall} mm rainfall for {state} ({season} season)."
+        "message": f"Auto-synced {condition_icon} {current_temp}°C & {adjusted_rainfall} mm rainfall for {location_display} ({season} season)."
     }
 
 
 def get_weather_by_coords(lat: float, lon: float, season: str = None) -> dict:
-    """Fetches hyper-local live weather for GPS coordinates and resolves nearest state."""
+    """Fetches hyper-local live weather for GPS coordinates and resolves nearest state and district."""
     nearest_state = get_nearest_state(lat, lon)
-    res = get_weather_for_state(nearest_state, season)
+    nearest_district = get_nearest_district(lat, lon, nearest_state)
+    res = get_weather_for_state(nearest_state, season, nearest_district)
     
     # Overwrite exact coordinates
     res["coordinates"] = {"lat": lat, "lon": lon}
     res["nearest_state"] = nearest_state
-    res["message"] = f"GPS Location detected near {nearest_state}: {res['icon']} {res['temperature_c']}°C, {res['rainfall_mm']} mm rainfall auto-synced."
+    res["nearest_district"] = nearest_district
+    res["message"] = f"GPS Location detected near {nearest_district}, {nearest_state}: {res['icon']} {res['temperature_c']}°C, {res['rainfall_mm']} mm rainfall auto-synced."
     return res

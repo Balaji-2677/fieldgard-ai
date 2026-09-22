@@ -8,6 +8,7 @@ const PRESETS = {
   wheat_punjab: {
     farmer_name: "Ramesh Singh",
     state: "Punjab",
+    district: "Ludhiana",
     crop: "Wheat",
     season: "Rabi",
     soil_type: "Alluvial",
@@ -21,6 +22,7 @@ const PRESETS = {
   rice_bengal: {
     farmer_name: "Subhash Mondal",
     state: "West Bengal",
+    district: "Purba Bardhaman",
     crop: "Rice",
     season: "Kharif",
     soil_type: "Clayey",
@@ -34,6 +36,7 @@ const PRESETS = {
   cotton_maharashtra: {
     farmer_name: "Gajanan Patil",
     state: "Maharashtra",
+    district: "Nagpur",
     crop: "Cotton",
     season: "Kharif",
     soil_type: "Black",
@@ -47,6 +50,7 @@ const PRESETS = {
   sugarcane_up: {
     farmer_name: "Devendra Chaudhary",
     state: "Uttar Pradesh",
+    district: "Muzaffarnagar",
     crop: "Sugarcane",
     season: "Whole Year",
     soil_type: "Alluvial",
@@ -60,6 +64,7 @@ const PRESETS = {
   tomato_karnataka: {
     farmer_name: "Manjunath Gowda",
     state: "Karnataka",
+    district: "Kolar",
     crop: "Tomato",
     season: "Rabi",
     soil_type: "Red",
@@ -73,6 +78,7 @@ const PRESETS = {
   onion_maharashtra: {
     farmer_name: "Suresh Shinde",
     state: "Maharashtra",
+    district: "Nashik",
     crop: "Onion",
     season: "Rabi",
     soil_type: "Black",
@@ -86,6 +92,7 @@ const PRESETS = {
   apple_kashmir: {
     farmer_name: "Bashir Ahmad",
     state: "Jammu and Kashmir",
+    district: "Shopian",
     crop: "Apple",
     season: "Rabi",
     soil_type: "Sandy Loam",
@@ -171,25 +178,94 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Load State-Districts Data from embedded JSON
+  let stateDistrictsMap = {};
+  const districtDataEl = document.getElementById("state-districts-data");
+  if (districtDataEl) {
+    try {
+      stateDistrictsMap = JSON.parse(districtDataEl.textContent);
+    } catch (e) {
+      console.warn("Could not parse embedded district data:", e);
+    }
+  }
+
+  // Helper to populate districts dropdown
+  window.populateDistricts = function (state, selectedDistrict = null) {
+    const districtSelect = document.getElementById("district");
+    const countBadge = document.getElementById("district-count-badge");
+    if (!districtSelect) return;
+
+    districtSelect.innerHTML = "";
+    const districts = stateDistrictsMap[state] || [];
+
+    if (districts.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "Select State First";
+      districtSelect.appendChild(opt);
+      if (countBadge) countBadge.style.display = "none";
+      return;
+    }
+
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.disabled = true;
+    defaultOpt.selected = !selectedDistrict;
+    defaultOpt.textContent = `Choose ${state} District`;
+    districtSelect.appendChild(defaultOpt);
+
+    districts.forEach((d) => {
+      const opt = document.createElement("option");
+      opt.value = d;
+      opt.textContent = d;
+      if (selectedDistrict && d.toLowerCase() === selectedDistrict.toLowerCase()) {
+        opt.selected = true;
+      }
+      districtSelect.appendChild(opt);
+    });
+
+    if (countBadge) {
+      countBadge.textContent = `${districts.length} Districts in ${state}`;
+      countBadge.style.display = "inline-block";
+    }
+
+    // Auto-select first district if none pre-selected
+    if (!selectedDistrict && districts.length > 0) {
+      districtSelect.value = districts[0];
+    }
+  };
+
   // Query parameters support (e.g. from Location Map link)
   const urlParams = new URLSearchParams(window.location.search);
   const stateParam = urlParams.get("state");
+  const districtParam = urlParams.get("district");
   const cropParam = urlParams.get("crop");
   if (stateParam) {
     const stateEl = document.getElementById("state");
-    if (stateEl) stateEl.value = stateParam;
+    if (stateEl) {
+      stateEl.value = stateParam;
+      populateDistricts(stateParam, districtParam);
+    }
   }
   if (cropParam) {
     const cropEl = document.getElementById("crop");
     if (cropEl) cropEl.value = cropParam;
   }
 
-  // State & Season change: Auto-fetch weather data
+  // State, District & Season change: Auto-fetch weather data
   const stateSelect = document.getElementById("state");
+  const districtSelect = document.getElementById("district");
   const seasonSelect = document.getElementById("season");
 
   if (stateSelect) {
     stateSelect.addEventListener("change", () => {
+      populateDistricts(stateSelect.value);
+      fetchWeatherForSelection();
+    });
+  }
+
+  if (districtSelect) {
+    districtSelect.addEventListener("change", () => {
       fetchWeatherForSelection();
     });
   }
@@ -202,6 +278,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Initial populate if state is pre-selected
+  if (stateSelect && stateSelect.value) {
+    populateDistricts(stateSelect.value, districtSelect ? districtSelect.value : null);
+  }
+
   // Form Submission
   if (form) {
     form.addEventListener("submit", async (e) => {
@@ -212,10 +293,11 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /**
- * Automatically fetches and populates live & seasonal weather for selected State and Season
+ * Automatically fetches and populates live & seasonal weather for selected State, District and Season
  */
-async function fetchWeatherForSelection(stateOverride, seasonOverride) {
+async function fetchWeatherForSelection(stateOverride, seasonOverride, districtOverride) {
   const stateEl = document.getElementById("state");
+  const districtEl = document.getElementById("district");
   const seasonEl = document.getElementById("season");
   const rainEl = document.getElementById("rainfall");
   const tempEl = document.getElementById("temperature");
@@ -228,19 +310,22 @@ async function fetchWeatherForSelection(stateOverride, seasonOverride) {
   const tempBadge = document.getElementById("temp-auto-badge");
 
   const state = stateOverride || (stateEl ? stateEl.value : "");
+  const district = districtOverride || (districtEl ? districtEl.value : "");
   const season = seasonOverride || (seasonEl ? seasonEl.value : "");
 
   if (!state) return;
 
+  const locDisplay = district ? `${district}, ${state}` : state;
+
   // Show syncing status
   if (statusText) statusText.textContent = "Syncing Weather...";
-  if (syncDesc) syncDesc.textContent = `Connecting to satellite weather service for ${state}...`;
+  if (syncDesc) syncDesc.textContent = `Connecting to satellite weather service for ${locDisplay}...`;
 
   try {
     const res = await fetch("/api/weather", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state: state, season: season })
+      body: JSON.stringify({ state: state, district: district, season: season })
     });
     const data = await res.json();
 
@@ -260,13 +345,14 @@ async function fetchWeatherForSelection(stateOverride, seasonOverride) {
       // Update Weather Card
       if (syncBanner) syncBanner.classList.add("synced");
       if (syncIcon) syncIcon.textContent = data.icon || "🌤️";
-      if (syncTitle) syncTitle.textContent = `Synced Weather for ${data.state} (${data.season || "Annual"})`;
+      const displayLoc = data.district ? `${data.district}, ${data.state}` : data.state;
+      if (syncTitle) syncTitle.textContent = `Synced Weather for ${displayLoc} (${data.season || "Annual"})`;
       if (syncDesc) {
         syncDesc.innerHTML = `Auto-populated: <strong>${data.temperature_c}°C</strong> ambient temperature & <strong>${data.rainfall_mm} mm</strong> seasonal rainfall. Humidity: ${data.humidity_percent}%. Condition: <em>${data.condition}</em>.`;
       }
       if (statusText) statusText.textContent = "Live Weather Synced";
 
-      showToast(`🌤️ Weather auto-synced for ${data.state}: ${data.temperature_c}°C & ${data.rainfall_mm} mm rain!`, "success");
+      showToast(`🌤️ Weather auto-synced for ${displayLoc}: ${data.temperature_c}°C & ${data.rainfall_mm} mm rain!`, "success");
     }
   } catch (err) {
     console.error("Error fetching weather:", err);
@@ -305,10 +391,13 @@ async function detectGPSWeather() {
         const data = await res.json();
 
         if (data.success) {
-          // Select detected state in dropdown
+          // Select detected state and district in dropdown
           const stateEl = document.getElementById("state");
           if (stateEl && data.nearest_state) {
             stateEl.value = data.nearest_state;
+            if (typeof populateDistricts === "function") {
+              populateDistricts(data.nearest_state, data.nearest_district);
+            }
           }
 
           // Populate weather
@@ -322,14 +411,15 @@ async function detectGPSWeather() {
           if (tempBadge) tempBadge.style.display = "inline-block";
 
           // Card
+          const locName = data.nearest_district ? `${data.nearest_district}, ${data.nearest_state}` : data.nearest_state;
           const syncBanner = document.getElementById("weather-sync-banner");
           if (syncBanner) syncBanner.classList.add("synced");
           document.getElementById("weather-sync-icon").textContent = data.icon || "🌤️";
-          document.getElementById("weather-sync-title").textContent = `GPS Detected: ${data.nearest_state}`;
+          document.getElementById("weather-sync-title").textContent = `GPS Detected: ${locName}`;
           document.getElementById("weather-sync-desc").innerHTML = `Coordinates (${lat.toFixed(2)}°, ${lon.toFixed(2)}°): <strong>${data.temperature_c}°C</strong> & <strong>${data.rainfall_mm} mm</strong> rainfall. Humidity: ${data.humidity_percent}%.`;
           document.getElementById("weather-status-text").textContent = "GPS Weather Synced";
 
-          showToast(`📍 GPS Location detected near ${data.nearest_state}! Weather auto-synced.`, "success");
+          showToast(`📍 GPS Location detected near ${locName}! Weather auto-synced.`, "success");
         }
       } catch (err) {
         console.error("GPS Weather Error:", err);
@@ -356,6 +446,13 @@ async function detectGPSWeather() {
 function applyPreset(preset) {
   document.getElementById("farmer_name").value = preset.farmer_name || "";
   document.getElementById("state").value = preset.state;
+  if (typeof populateDistricts === "function") {
+    populateDistricts(preset.state, preset.district);
+  }
+  const districtEl = document.getElementById("district");
+  if (districtEl && preset.district) {
+    districtEl.value = preset.district;
+  }
   document.getElementById("crop").value = preset.crop;
   document.getElementById("season").value = preset.season;
   document.getElementById("soil_type").value = preset.soil_type;
@@ -381,8 +478,9 @@ function applyPreset(preset) {
     const syncTitle = document.getElementById("weather-sync-title");
     const syncDesc = document.getElementById("weather-sync-desc");
     const statusText = document.getElementById("weather-status-text");
+    const locDisplay = preset.district ? `${preset.district}, ${preset.state}` : preset.state;
     if (syncIcon) syncIcon.textContent = "🌤️";
-    if (syncTitle) syncTitle.textContent = `Preset Weather for ${preset.state} (${preset.season})`;
+    if (syncTitle) syncTitle.textContent = `Preset Weather for ${locDisplay} (${preset.season})`;
     if (syncDesc) syncDesc.innerHTML = `Loaded: <strong>${preset.temp_c}°C</strong> ambient temperature & <strong>${preset.rainfall_mm} mm</strong> seasonal rainfall.`;
     if (statusText) statusText.textContent = "Preset Synced";
   }
@@ -396,6 +494,7 @@ async function handlePredictionSubmit() {
   const submitBtn = document.getElementById("predict-submit-btn");
   const crop = document.getElementById("crop").value;
   const state = document.getElementById("state").value;
+  const district = (document.getElementById("district")?.value || "").trim();
   const season = document.getElementById("season").value;
   const soil_type = document.getElementById("soil_type").value;
   const rawRain = document.getElementById("rainfall").value.trim();
@@ -437,12 +536,18 @@ async function handlePredictionSubmit() {
     return;
   }
 
+  if (pesticide_kg > 25) {
+    showToast("Invalid input: Pesticide usage cannot exceed 25 kg/ha.", "error");
+    return;
+  }
+
   // Convert area to Hectares for ML model if entered in acres
   const areaInHa = currentAreaUnit === "acre" ? rawArea / 2.47105 : rawArea;
 
   const payload = {
     farmer_name: document.getElementById("farmer_name").value.trim(),
     state: state,
+    district: district,
     crop: crop,
     season: season,
     soil_type: soil_type,
@@ -533,7 +638,7 @@ function renderPredictionResult(analysis, inputData) {
         </div>
         <div class="result-crop-icon">${analysis.icon}</div>
         <div class="result-crop-name">${analysis.crop}</div>
-        <div style="font-size: 0.85rem; opacity: 0.9;">${analysis.category} &bull; ${inputData.season} Season &bull; ${inputData.state}</div>
+        <div style="font-size: 0.85rem; opacity: 0.9;">${analysis.category} &bull; ${inputData.season} Season &bull; ${inputData.district ? inputData.district + ', ' : ''}${inputData.state}</div>
 
         <div class="result-main-yield">
           <div class="yield-number">${analysis.predicted_yield_t_ha}</div>
@@ -596,13 +701,15 @@ function renderCropSuggestionHtml(sug, analysis, inputData) {
     ? `+${sug.yield_diff_percent}% Yield Gain`
     : `Higher Regional Fit`;
 
+  const locationDisplay = inputData.district ? `${inputData.district}, ${inputData.state}` : inputData.state;
+
   return `
     <div class="crop-suggestion-card" style="margin-bottom: 20px; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: var(--radius-md); padding: 18px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 6px;">
           <span style="font-size: 1.3rem;">💡</span>
           <span style="font-size: 0.8rem; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">
-            Yield Optimization Suggestion for ${inputData.state}
+            Yield Optimization Suggestion for ${locationDisplay}
           </span>
         </div>
         <span style="background: #15803d; color: #fff; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: var(--radius-full);">

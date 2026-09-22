@@ -69,37 +69,37 @@
       </button>
 
       <ul class="nav-menu">
-        <li><a href="{{ url_for('index') }}" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a></li>
-        <li><a href="{{ url_for('how_to_use_page') }}" class="nav-link {% if request.path == '/how-to-use' %}active{% endif %}">📖 How to Use</a></li>
-        <li><a href="{{ url_for('predict_page') }}" class="nav-link {% if request.path == '/predict' %}active{% endif %}">Predict Yield</a></li>
+        <li><a href="{{ url_for('index') }}" class="nav-link {% if request.path == '/' %}active{% endif %}"><span>🏠</span> <span>Home</span></a></li>
+        <li><a href="{{ url_for('how_to_use_page') }}" class="nav-link {% if request.path == '/how-to-use' %}active{% endif %}"><span>📖</span> <span>How to Use</span></a></li>
+        <li><a href="{{ url_for('predict_page') }}" class="nav-link {% if request.path == '/predict' %}active{% endif %}"><span>🌾</span> <span>Predict Yield</span></a></li>
         
         {% if session.get('user_role') == 'admin' %}
-          <li><a href="{{ url_for('admin_dashboard') }}" class="nav-link {% if '/admin' in request.path %}active{% endif %}" style="color: #d97706; font-weight: 700;">👑 Admin Console</a></li>
+          <li><a href="{{ url_for('admin_dashboard') }}" class="nav-link nav-link-admin {% if '/admin' in request.path %}active{% endif %}"><span>👑</span> <span>Admin Console</span></a></li>
         {% elif session.get('user_id') %}
-          <li><a href="{{ url_for('farmer_dashboard') }}" class="nav-link {% if '/farmer' in request.path %}active{% endif %}" style="color: var(--primary); font-weight: 700;">🚜 Farmer Dashboard</a></li>
+          <li><a href="{{ url_for('farmer_dashboard') }}" class="nav-link nav-link-farmer {% if '/farmer' in request.path %}active{% endif %}"><span>🚜</span> <span>Farmer Dashboard</span></a></li>
         {% endif %}
 
-        <li><a href="{{ url_for('dashboard_page') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Analytics</a></li>
-        <li><a href="{{ url_for('assistant_page') }}" class="nav-link {% if request.path == '/assistant' %}active{% endif %}">🤖 Kisan AI</a></li>
-        <li><a href="{{ url_for('about_page') }}" class="nav-link {% if request.path == '/about' %}active{% endif %}">About AI</a></li>
-        <li><a href="{{ url_for('contact_page') }}" class="nav-link {% if request.path == '/contact' %}active{% endif %}">Helplines</a></li>
+        <li><a href="{{ url_for('dashboard_page') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}"><span>📊</span> <span>Analytics</span></a></li>
+        <li><a href="{{ url_for('assistant_page') }}" class="nav-link {% if request.path == '/assistant' %}active{% endif %}"><span>🤖</span> <span>Kisan AI</span></a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link {% if request.path == '/about' %}active{% endif %}"><span>ℹ️</span> <span>About AI</span></a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link {% if request.path == '/contact' %}active{% endif %}"><span>📞</span> <span>Helplines</span></a></li>
         
         {% if session.get('user_id') %}
-          <li style="display: flex; align-items: center; gap: 8px;">
+          <li>
             {% if session.get('user_role') == 'admin' %}
-              <a href="{{ url_for('admin_dashboard') }}" style="font-size: 0.82rem; font-weight: 700; color: #92400e; background: #fef3c7; padding: 4px 10px; border-radius: var(--radius-full); border: 1px solid #fde68a;">
-                👑 Admin: {{ session.get('user_name', 'Admin') }}
+              <a href="{{ url_for('admin_dashboard') }}" class="nav-link nav-link-admin" style="font-weight: 700;">
+                <span>👑</span> <span>Admin: {{ session.get('user_name', 'Admin') }}</span>
               </a>
             {% else %}
-              <a href="{{ url_for('farmer_dashboard') }}" style="font-size: 0.82rem; font-weight: 700; color: #1e7e34; background: #e8f5e9; padding: 4px 10px; border-radius: var(--radius-full); border: 1px solid #c8e6c9;">
-                👨‍🌾 {{ session.get('user_name', 'Farmer') }}
+              <a href="{{ url_for('farmer_dashboard') }}" class="nav-link nav-link-farmer" style="font-weight: 700;">
+                <span>👨‍🌾</span> <span>{{ session.get('user_name', 'Farmer') }}</span>
               </a>
             {% endif %}
           </li>
-          <li><a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline" style="border-color: #fca5a5; color: #dc2626; padding: 4px 10px; font-size: 0.8rem;">Logout</a></li>
+          <li><a href="{{ url_for('logout') }}" class="nav-link nav-link-logout"><span>🚪</span> <span>Logout</span></a></li>
         {% else %}
-          <li><a href="{{ url_for('login') }}" class="nav-link {% if request.path == '/login' %}active{% endif %}">🔑 Login</a></li>
-          <li><a href="{{ url_for('register') }}" class="btn btn-sm btn-outline">📝 Register</a></li>
+          <li><a href="{{ url_for('login') }}" class="nav-link {% if request.path == '/login' %}active{% endif %}"><span>🔑</span> <span>Login</span></a></li>
+          <li><a href="{{ url_for('register') }}" class="nav-link nav-link-register {% if request.path == '/register' %}active{% endif %}"><span>📝</span> <span>Register</span></a></li>
         {% endif %}
       </ul>
     </div>
@@ -116,7 +116,7 @@
       <div class="footer-grid">
         <div>
           <div class="footer-brand">
-            <span>🌾</span> CropYield AI
+            <span>🌾</span> CropYield AI <span class="brand-badge" style="vertical-align: middle;">AgriTech</span>
           </div>
           <p class="footer-desc">
             A real-world agricultural intelligence platform empowering farmers with precision machine learning crop yield forecasts, soil suitability analysis, and actionable field advisory to maximize harvest profitability.

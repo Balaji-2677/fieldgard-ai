@@ -125,7 +125,9 @@
             </td>
             <td>
               <div style="font-size: 0.85rem;">{{ u.phone or 'No phone' }}</div>
-              <div style="font-size: 0.78rem; color: var(--gray-medium);">📍 {{ u.state or 'Not specified' }}</div>
+              <div style="font-size: 0.78rem; color: var(--gray-medium);">
+                📍 {{ (u.district ~ ', ' ~ u.state) if u.district else (u.state or 'Not specified') }}
+              </div>
             </td>
             <td>
               <strong>{{ u.farm_size_ha }}</strong> Ha
@@ -229,7 +231,7 @@
         <thead>
           <tr>
             <th>ID & Date</th>
-            <th>Farmer & State</th>
+            <th>Farmer & Location</th>
             <th>Crop (Season)</th>
             <th>Soil</th>
             <th>Area</th>
@@ -249,7 +251,9 @@
             </td>
             <td>
               <div style="font-weight: 600;">{{ row.farmer_name }}</div>
-              <div style="font-size: 0.78rem; color: var(--gray-medium);">📍 {{ row.state }}</div>
+              <div style="font-size: 0.78rem; color: var(--gray-medium);">
+                📍 {{ (row.district ~ ', ' ~ row.state) if row.district else row.state }}
+              </div>
             </td>
             <td>
               <span style="font-weight: 700;">{{ row.crop }}</span>

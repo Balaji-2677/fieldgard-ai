@@ -498,8 +498,109 @@ class TestCropYieldApp(unittest.TestCase):
         conn.close()
         print(f"   [50-Limit Test Passed] Automatic history cap verified: Database strictly maintains {count} records.")
 
+    def test_district_integration(self):
+        """Test State-District mapping, microclimate weather lookup, and district persistence."""
+        from ml.district_data import get_districts_for_state, STATE_DISTRICTS
+
+        # 1. Verify district data repository has major states & UTs
+        self.assertIn("Punjab", STATE_DISTRICTS)
+        self.assertIn("Maharashtra", STATE_DISTRICTS)
+        self.assertIn("Tamil Nadu", STATE_DISTRICTS)
+
+        punjab_districts = get_districts_for_state("Punjab")
+        self.assertIn("Ludhiana", punjab_districts)
+        self.assertIn("Amritsar", punjab_districts)
+
+        # 2. Test /api/districts endpoint
+        res = self.client.get("/api/districts?state=Maharashtra")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertIn("Nashik", data.get("districts", []))
+
+        # 3. Test /api/weather with district microclimate
+        weather_res = self.client.post("/api/weather", data=json.dumps({
+            "state": "Maharashtra",
+            "district": "Nashik",
+            "season": "Rabi"
+        }), content_type="application/json")
+        self.assertEqual(weather_res.status_code, 200)
+        weather_data = weather_res.get_json()
+        self.assertTrue(weather_data.get("success"))
+        self.assertEqual(weather_data.get("district"), "Nashik")
+        self.assertGreater(weather_data.get("temperature_c"), 0)
+
+        # 4. Test prediction submission with district
+        pred_payload = {
+            "farmer_name": "District Test Farmer",
+            "state": "Maharashtra",
+            "district": "Nashik",
+            "crop": "Onion",
+            "season": "Rabi",
+            "soil_type": "Black",
+            "area_ha": 2.0,
+            "rainfall_mm": 550,
+            "temp_c": 22.0,
+            "fertilizer_kg": 140,
+            "pesticide_kg": 2.0,
+            "notes": "Nashik onion belt test"
+        }
+        pred_res = self.client.post("/api/predict", data=json.dumps(pred_payload), content_type="application/json")
+        self.assertEqual(pred_res.status_code, 200)
+        pred_json = pred_res.get_json()
+        self.assertTrue(pred_json.get("success"))
+        self.assertEqual(pred_json.get("district"), "Nashik")
+
+        # 5. Verify district stored in database and searchable
+        records = database.get_history(search_query="Nashik")
+        self.assertGreater(len(records), 0)
+        self.assertEqual(records[0]["district"], "Nashik")
+
+        # 6. Verify CSV export includes district column
+        csv_res = self.client.get("/api/export-csv")
+        self.assertEqual(csv_res.status_code, 200)
+        csv_text = csv_res.data.decode("utf-8")
+        self.assertIn("district", csv_text)
+        self.assertIn("Nashik", csv_text)
+
+        print(f"   [District Integration Test Passed] Verified District API, Weather Microclimate, DB Storage & CSV.")
+
+    def test_pesticide_limit_25(self):
+        """Test that pesticide usage accepts values up to 25.0 kg/ha and rejects > 25.0 kg/ha."""
+        # 1. Test pesticide = 25.0 (accepted)
+        payload_valid = {
+            "farmer_name": "Pesticide Test Farmer",
+            "state": "Punjab",
+            "crop": "Wheat",
+            "season": "Rabi",
+            "soil_type": "Alluvial",
+            "area_ha": 2.0,
+            "rainfall_mm": 500,
+            "temp_c": 20.0,
+            "fertilizer_kg": 120,
+            "pesticide_kg": 25.0,
+            "notes": "Test max pesticide 25"
+        }
+        res_valid = self.client.post("/api/predict", data=json.dumps(payload_valid), content_type="application/json")
+        self.assertEqual(res_valid.status_code, 200)
+        data_valid = res_valid.get_json()
+        self.assertTrue(data_valid.get("success"))
+        self.assertGreater(data_valid.get("predicted_yield_t_ha", 0), 0)
+
+        # 2. Test pesticide = 25.5 (rejected)
+        payload_invalid = dict(payload_valid)
+        payload_invalid["pesticide_kg"] = 25.5
+        res_invalid = self.client.post("/api/predict", data=json.dumps(payload_invalid), content_type="application/json")
+        self.assertEqual(res_invalid.status_code, 400)
+        data_invalid = res_invalid.get_json()
+        self.assertFalse(data_invalid.get("success"))
+        self.assertIn("cannot exceed 25", data_invalid.get("error", ""))
+
+        print("   [Pesticide 25 Limit Test Passed] Successfully accepts up to 25.0 kg/ha and rejects > 25.0 kg/ha.")
+
 
 if __name__ == "__main__":
     print("🌾 Running Crop Yield Application Test Suite (Including Dashboards & Permissions)...")
     unittest.main()
+
 

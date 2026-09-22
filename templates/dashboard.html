@@ -107,7 +107,7 @@
       </div>
       <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
         <div class="table-search">
-          <input type="text" id="history-search" class="form-control" style="padding: 6px 12px; font-size: 0.85rem;" placeholder="Search farmer, state, or notes...">
+          <input type="text" id="history-search" class="form-control" style="padding: 6px 12px; font-size: 0.85rem;" placeholder="Search farmer, district, state, or notes...">
         </div>
 
         <select id="history-crop-filter" class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.85rem;">
@@ -144,7 +144,9 @@
             </td>
             <td>
               <div style="font-weight: 600;">{{ row.farmer_name }}</div>
-              <div style="font-size: 0.78rem; color: var(--gray-medium);">{{ row.state }}</div>
+              <div style="font-size: 0.78rem; color: var(--gray-medium);">
+                📍 {{ (row.district ~ ', ' ~ row.state) if row.district else row.state }}
+              </div>
             </td>
             <td>
               <span style="font-weight: 600;">{{ row.crop }}</span>

@@ -12,6 +12,16 @@ from datetime import datetime
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+# Windows Smart App Control patch: Avoid loading blocked unsigned _cd_fast pyd
+import types
+if "sklearn.linear_model._cd_fast" not in sys.modules:
+    _dummy_cd_fast = types.ModuleType("sklearn.linear_model._cd_fast")
+    _dummy_cd_fast.enet_coordinate_descent = lambda *a, **k: None
+    _dummy_cd_fast.enet_coordinate_descent_gram = lambda *a, **k: (0, 0, 0, 0)
+    _dummy_cd_fast.enet_coordinate_descent_multi_task = lambda *a, **k: None
+    _dummy_cd_fast.sparse_enet_coordinate_descent = lambda *a, **k: None
+    sys.modules["sklearn.linear_model._cd_fast"] = _dummy_cd_fast
+
 import joblib
 import numpy as np
 import pandas as pd

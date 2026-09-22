@@ -48,7 +48,7 @@
       </h2>
 
       <form id="predict-form">
-        <!-- Farmer Info -->
+        <!-- Farmer Info & State Selection -->
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="farmer_name">Farmer / Plot Name <span class="unit">(Optional)</span></label>
@@ -66,6 +66,30 @@
               <option value="" disabled selected>Select State</option>
               {% for state in options.states %}
                 <option value="{{ state }}">{{ state }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- District & Soil Type Selection -->
+        <div class="form-row">
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" for="district" style="margin-bottom: 0;">District <span style="color:red">*</span></label>
+              <span id="district-count-badge" style="font-size: 0.72rem; color: #166534; background: #dcfce7; padding: 2px 8px; border-radius: 10px; display: none;"></span>
+            </div>
+            <select id="district" class="form-control" required>
+              <option value="" disabled selected>Select State First</option>
+            </select>
+            <div class="form-hint">District microclimate auto-tunes weather &amp; soil advisory</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="soil_type">Soil Type <span style="color:red">*</span></label>
+            <select id="soil_type" class="form-control" required>
+              <option value="" disabled selected>Select Soil Type</option>
+              {% for soil in options.soils %}
+                <option value="{{ soil }}">{{ soil }}</option>
               {% endfor %}
             </select>
           </div>
@@ -96,19 +120,9 @@
           </div>
         </div>
 
-        <!-- Soil & Land Area -->
+        <!-- Land Area -->
         <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="soil_type">Soil Type <span style="color:red">*</span></label>
-            <select id="soil_type" class="form-control" required>
-              <option value="" disabled selected>Select Soil Type</option>
-              {% for soil in options.soils %}
-                <option value="{{ soil }}">{{ soil }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="form-group">
+          <div class="form-group" style="grid-column: 1 / -1;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <label class="form-label" for="area" style="margin-bottom: 0;">
                 Land Area <span id="area-label-unit" class="unit">(Hectares)</span> <span style="color:red">*</span>
@@ -178,7 +192,7 @@
 
           <div class="form-group">
             <label class="form-label" for="pesticide">Pesticide Usage <span class="unit">(kg/ha)</span> <span style="color:red">*</span></label>
-            <input type="number" step="0.1" min="0.0" max="10.0" id="pesticide" class="form-control" placeholder="e.g. 1.8" required>
+            <input type="number" step="0.1" min="0.0" max="25.0" id="pesticide" class="form-control" placeholder="e.g. 1.8" required>
             <div class="form-hint">Crop protection active ingredients</div>
           </div>
         </div>
@@ -219,5 +233,8 @@
 {% endblock %}
 
 {% block scripts %}
+<script id="state-districts-data" type="application/json">
+  {{ state_districts | tojson }}
+</script>
 <script src="{{ url_for('static', filename='js/predict.js') }}"></script>
 {% endblock %}

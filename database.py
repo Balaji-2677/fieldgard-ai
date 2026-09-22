@@ -60,20 +60,24 @@ def init_db():
     );
     """)
 
-    # Schema migration: Check if role and status columns exist in users table
+    # Schema migration: Check if role, status, and district columns exist in users table
     cursor.execute("PRAGMA table_info(users)")
     user_columns = [col[1] for col in cursor.fetchall()]
     if "role" not in user_columns:
         cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'farmer'")
     if "status" not in user_columns:
         cursor.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'approved'")
+    if "district" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN district TEXT")
     conn.commit()
 
-    # Schema migration: Check if user_id column exists in predictions
+    # Schema migration: Check if user_id and district columns exist in predictions
     cursor.execute("PRAGMA table_info(predictions)")
     pred_columns = [col[1] for col in cursor.fetchall()]
     if "user_id" not in pred_columns:
         cursor.execute("ALTER TABLE predictions ADD COLUMN user_id INTEGER")
+    if "district" not in pred_columns:
+        cursor.execute("ALTER TABLE predictions ADD COLUMN district TEXT")
     conn.commit()
 
     # Seed master Admin account if not already present
@@ -212,15 +216,15 @@ def init_db():
     conn.close()
 
 
-def create_user(name, email, password_hash, phone=None, state=None, farm_size_ha=1.0, role="farmer", status="approved"):
+def create_user(name, email, password_hash, phone=None, state=None, farm_size_ha=1.0, role="farmer", status="approved", district=None):
     """Register a new user into SQLite with role and permission status."""
     conn = get_connection()
     cursor = conn.cursor()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute("""
-    INSERT INTO users (created_at, name, email, password_hash, phone, state, farm_size_ha, role, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO users (created_at, name, email, password_hash, phone, state, district, farm_size_ha, role, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         now_str,
         name.strip(),
@@ -228,6 +232,7 @@ def create_user(name, email, password_hash, phone=None, state=None, farm_size_ha
         password_hash,
         phone.strip() if phone else None,
         state.strip() if state else None,
+        district.strip() if district else None,
         float(farm_size_ha or 1.0),
         role,
         status
@@ -264,7 +269,7 @@ def get_user_by_id(user_id):
 
 
 def save_prediction(data, user_id=None):
-    """Insert a new prediction record into SQLite with optional user_id."""
+    """Insert a new prediction record into SQLite with optional user_id and district."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -272,15 +277,16 @@ def save_prediction(data, user_id=None):
 
     cursor.execute("""
     INSERT INTO predictions (
-        created_at, user_id, farmer_name, state, crop, season, soil_type,
+        created_at, user_id, farmer_name, state, district, crop, season, soil_type,
         area_ha, rainfall_mm, temp_c, fertilizer_kg, pesticide_kg,
         predicted_yield_t_ha, total_production_tonnes, yield_status, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         now_str,
         user_id,
         data.get("farmer_name") or "Anonymous Farmer",
         data["state"],
+        data.get("district") or "",
         data["crop"],
         data["season"],
         data["soil_type"],
@@ -329,9 +335,9 @@ def get_history(limit=50, crop_filter=None, search_query=None, user_id=None):
         params.append(crop_filter)
 
     if search_query:
-        query += " AND (farmer_name LIKE ? OR state LIKE ? OR notes LIKE ?)"
+        query += " AND (farmer_name LIKE ? OR state LIKE ? OR district LIKE ? OR notes LIKE ?)"
         like_str = f"%{search_query}%"
-        params.extend([like_str, like_str, like_str])
+        params.extend([like_str, like_str, like_str, like_str])
 
     query += " ORDER BY id DESC LIMIT ?"
     params.append(limit)
@@ -485,18 +491,19 @@ def update_user_permission(user_id, status=None, role=None):
     conn.close()
 
 
-def update_user_profile(user_id, name, phone, state, farm_size_ha):
+def update_user_profile(user_id, name, phone, state, farm_size_ha, district=None):
     """Farmer tool: Update profile details from Farmer Dashboard."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
     UPDATE users 
-    SET name = ?, phone = ?, state = ?, farm_size_ha = ?
+    SET name = ?, phone = ?, state = ?, district = ?, farm_size_ha = ?
     WHERE id = ?
     """, (
         name.strip(),
         phone.strip() if phone else None,
         state.strip() if state else None,
+        district.strip() if district else None,
         float(farm_size_ha or 1.0),
         user_id
     ))
@@ -594,4 +601,27 @@ def get_admin_dashboard_stats():
         "active_states": active_states,
         "active_crops": active_crops
     }
+
+
+def get_all_for_csv():
+    """Retrieve all predictions formatted for CSV export, including district."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    columns = [
+        "id", "created_at", "farmer_name", "state", "district", "crop", "season",
+        "soil_type", "area_ha", "rainfall_mm", "temp_c", "fertilizer_kg",
+        "pesticide_kg", "predicted_yield_t_ha", "total_production_tonnes",
+        "yield_status", "notes"
+    ]
+    cursor.execute("""
+        SELECT id, created_at, farmer_name, state, COALESCE(district, ''),
+               crop, season, soil_type, area_ha, rainfall_mm, temp_c,
+               fertilizer_kg, pesticide_kg, predicted_yield_t_ha,
+               total_production_tonnes, yield_status, notes
+        FROM predictions
+        ORDER BY id DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return columns, rows
 

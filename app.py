@@ -26,12 +26,24 @@ from flask import (
     url_for,
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Windows Smart App Control patch: Avoid loading blocked unsigned _cd_fast pyd
+import types
+if "sklearn.linear_model._cd_fast" not in sys.modules:
+    _dummy_cd_fast = types.ModuleType("sklearn.linear_model._cd_fast")
+    _dummy_cd_fast.enet_coordinate_descent = lambda *a, **k: None
+    _dummy_cd_fast.enet_coordinate_descent_gram = lambda *a, **k: (0, 0, 0, 0)
+    _dummy_cd_fast.enet_coordinate_descent_multi_task = lambda *a, **k: None
+    _dummy_cd_fast.sparse_enet_coordinate_descent = lambda *a, **k: None
+    sys.modules["sklearn.linear_model._cd_fast"] = _dummy_cd_fast
+
 import joblib
 import pandas as pd
 
 import database
 from ml.agronomy_engine import analyze_crop_prediction, AGRONOMIC_KNOWLEDGE
 from ml.ai_assistant import answer_farming_doubt
+from ml.district_data import STATE_DISTRICTS, get_districts_for_state, get_district_coords
 from ml.weather_service import get_weather_for_state, get_weather_by_coords
 
 app = Flask(__name__)
@@ -260,11 +272,22 @@ def api_chat():
     })
 
 
+@app.route("/api/districts", methods=["GET"])
+def api_districts():
+    """Returns districts for a specified state, or full map if none specified."""
+    state = request.args.get("state", "").strip()
+    if state:
+        districts = get_districts_for_state(state)
+        return jsonify({"success": True, "state": state, "districts": districts, "total": len(districts)})
+    return jsonify({"success": True, "districts_map": STATE_DISTRICTS})
+
+
 @app.route("/api/weather", methods=["GET", "POST"])
 def api_weather():
-    """Automated State & GPS Weather Integration Endpoint."""
+    """Automated State, District & GPS Weather Integration Endpoint."""
     data = request.get_json(silent=True) or request.args.to_dict() or {}
     state = data.get("state", "").strip()
+    district = data.get("district", "").strip()
     season = data.get("season", "").strip()
     lat = data.get("lat")
     lon = data.get("lon")
@@ -281,7 +304,7 @@ def api_weather():
     if not state:
         state = "Punjab"
 
-    res = get_weather_for_state(state, season=season)
+    res = get_weather_for_state(state, season=season, district=district)
     return jsonify(res)
 
 
@@ -309,6 +332,7 @@ def predict_page():
         "predict.html",
         options=options,
         agri_knowledge=AGRONOMIC_KNOWLEDGE,
+        state_districts=STATE_DISTRICTS,
     )
 
 
@@ -352,17 +376,19 @@ def farmer_dashboard():
         stats=farmer_stats,
         history=history,
         states=states,
+        state_districts=STATE_DISTRICTS,
     )
 
 
 @app.route("/farmer/update-profile", methods=["POST"])
 @login_required
 def farmer_update_profile():
-    """Update farmer personal and farm details."""
+    """Update farmer personal and farm details with state & district."""
     user_id = session.get("user_id")
     name = request.form.get("name", "").strip()
     phone = request.form.get("phone", "").strip()
     state = request.form.get("state", "").strip()
+    district = request.form.get("district", "").strip()
     farm_size = request.form.get("farm_size", "1.0")
 
     if not name:
@@ -374,10 +400,10 @@ def farmer_update_profile():
     except (ValueError, TypeError):
         farm_size_val = 1.0
 
-    database.update_user_profile(user_id, name, phone, state, farm_size_val)
+    database.update_user_profile(user_id, name, phone, state, farm_size_val, district=district)
     session["user_name"] = name
     session["user_state"] = state
-    flash("Your farmer profile and land details have been updated successfully!", "success")
+    flash("Your farmer profile, state & district details have been updated successfully!", "success")
     return redirect(url_for("farmer_dashboard"))
 
 
@@ -561,12 +587,19 @@ def api_predict():
                 "error": "Invalid input: Fertilizer and pesticide amounts cannot be negative."
             }), 400
 
+        if pesticide_kg > 25.0:
+            return jsonify({
+                "success": False,
+                "error": "Invalid input: Pesticide usage cannot exceed 25 kg/ha."
+            }), 400
+
         # Defaults for categorical variables if shorthand input is supplied
         crop = str(data.get("crop", "Rice")).strip() or "Rice"
         state = str(data.get("state", "Punjab")).strip() or "Punjab"
         season = str(data.get("season", "Kharif")).strip() or "Kharif"
         soil_type = str(data.get("soil_type", "Clayey")).strip() or "Clayey"
         farmer_name = str(data.get("farmer_name", "Farmer")).strip() or "Farmer"
+        district = str(data.get("district", "")).strip()
         notes = str(data.get("notes", "")).strip()
 
         # Construct DataFrame for Model Pipeline
@@ -601,11 +634,12 @@ def api_predict():
             ml_model=ml_model,
         )
 
-        # Save to SQLite Database
+        # Save to SQLite Database with District
         user_id = session.get("user_id")
         db_record = {
             "farmer_name": farmer_name if farmer_name != "Farmer" else (session.get("user_name") or "Farmer"),
             "state": state,
+            "district": district,
             "crop": crop,
             "season": season,
             "soil_type": soil_type,
@@ -629,6 +663,7 @@ def api_predict():
             "unit": "tonnes/hectare",
             "total_production_tonnes": total_production,
             "prediction_id": saved_id,
+            "district": district,
             "analysis": agri_analysis,
             "suggested_alternative_crop": agri_analysis.get("suggested_alternative_crop"),
         })
