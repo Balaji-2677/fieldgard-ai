@@ -46,10 +46,21 @@ document.addEventListener("DOMContentLoaded", () => {
   initSpeechRecognition();
 
   // If no chat selected, start new chat or load the most recent
-  if (conversations.length > 0) {
+  if (conversations.length > 0 && !window.location.search.includes("mode=doctor")) {
     switchChat(conversations[0].id);
   } else {
     startNewChat();
+  }
+
+  // Handle Plant Doctor shortcut if launched with ?mode=doctor
+  if (window.location.search.includes("mode=doctor")) {
+    setTimeout(() => {
+      const attachBtn = document.getElementById("btn-input-attach");
+      if (attachBtn) {
+        attachBtn.style.boxShadow = "0 0 0 4px rgba(16, 185, 129, 0.4)";
+        showToast("🍃 Plant Doctor Ready! Click the camera button or upload your diseased leaf photo.", "success");
+      }
+    }, 400);
   }
 });
 
@@ -158,7 +169,11 @@ function switchChat(chatId) {
   messagesContainer.innerHTML = "";
   conv.messages.forEach((msg) => {
     if (msg.role === "user") {
-      renderUserMessage(msg.content, false);
+      if (msg.image) {
+        renderUserImageMessage(msg.image, msg.content);
+      } else {
+        renderUserMessage(msg.content, false);
+      }
     } else {
       renderAiMessage(msg.content, false);
     }
@@ -257,6 +272,101 @@ function handleSendClick() {
   updateSendButtonState();
 
   submitUserMessage(message);
+}
+
+/* ==========================================================================
+   🔬 Plant Doctor: Leaf Disease Photo Diagnosis Uploader
+   ========================================================================== */
+
+async function handleLeafImageUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function (e) {
+    const imageSrc = e.target.result;
+
+    // Remove welcome screen if visible
+    const welcome = document.getElementById("chatgpt-welcome");
+    if (welcome) welcome.remove();
+
+    // Find or create current conversation
+    let conv = getCurrentConversation();
+    if (!conv) {
+      conv = {
+        id: currentChatId || "chat_" + Date.now(),
+        title: "🍃 Leaf Disease Diagnosis",
+        timestamp: Date.now(),
+        messages: [],
+      };
+      currentChatId = conv.id;
+      conversations.unshift(conv);
+    }
+
+    // Add user message with image preview
+    const userCaption = `🍃 [Leaf Photo Uploaded: ${file.name}] Please diagnose this crop disease and provide ICAR organic & chemical treatment protocols.`;
+    conv.messages.push({ role: "user", content: userCaption, image: imageSrc });
+    renderUserImageMessage(imageSrc, file.name);
+    scrollToBottom();
+    hideSuggestionBar();
+
+    // Set streaming state
+    setStreamingState(true);
+
+    // Create streaming AI bubble with diagnostic placeholder
+    const aiBubbleId = "ai-stream-" + Date.now();
+    const aiTextEl = createStreamingAiBubble(aiBubbleId);
+    aiTextEl.innerHTML = `<em>🔬 Analyzing foliar pathology and ICAR disease signatures...</em><span class="blinking-cursor"></span>`;
+    scrollToBottom();
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/diagnose-leaf", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.diagnosis) {
+        const d = data.diagnosis;
+        const formattedReply = 
+`### 🔬 Plant Doctor Diagnostic Report: ${d.disease_name}
+**Affected Crop:** ${d.affected_crop || "Foliar Crop"} | **AI Confidence:** ${d.confidence_percent || 94}% | **Severity:** ${d.severity || "Moderate to High"}
+
+**🔍 Visual Symptoms:**
+${d.symptoms}
+
+**🌿 Immediate Organic / Biological Remedy (ICAR Protocol):**
+${d.organic_remedy}
+
+**🧪 Recommended Chemical Treatment & Dosage:**
+${d.chemical_remedy}
+
+**🛡️ Long-term Field Prevention & Cultural Practices:**
+${d.prevention}`;
+
+        conv.messages.push({ role: "assistant", content: formattedReply });
+        saveConversationsToStorage();
+
+        await streamWords(aiTextEl, formattedReply);
+        attachActionButtons(aiBubbleId, formattedReply);
+      } else {
+        const errMsg = data.error || "Could not analyze the photo. Please ensure good lighting and clear leaf focus.";
+        aiTextEl.innerHTML = `<span style="color: #dc2626;">❌ ${escapeHtml(errMsg)}</span>`;
+      }
+    } catch (err) {
+      console.error("Diagnosis error:", err);
+      aiTextEl.innerHTML = `<span style="color: #dc2626;">❌ Error contacting Plant Doctor diagnostic service: ${escapeHtml(err.message)}</span>`;
+    } finally {
+      setStreamingState(false);
+      event.target.value = "";
+    }
+  };
+
+  reader.readAsDataURL(file);
 }
 
 async function submitUserMessage(message) {
@@ -417,6 +527,26 @@ function renderUserMessage(text, animate) {
   row.innerHTML = `
     <div class="gpt-content-wrapper" style="align-items: flex-end;">
       <div class="gpt-user-content">${escapeHtml(text)}</div>
+    </div>
+    <div class="gpt-avatar gpt-user-avatar">🧑‍🌾</div>
+  `;
+  container.appendChild(row);
+}
+
+function renderUserImageMessage(imageSrc, fileName) {
+  const container = document.getElementById("chat-messages");
+  if (!container) return;
+
+  const row = document.createElement("div");
+  row.className = "gpt-message-row gpt-user-row";
+  row.innerHTML = `
+    <div class="gpt-content-wrapper" style="align-items: flex-end;">
+      <div class="gpt-user-content" style="max-width: 320px; padding: 10px;">
+        <img src="${imageSrc}" alt="Uploaded Leaf" style="width: 100%; max-height: 220px; object-fit: cover; border-radius: 8px; margin-bottom: 6px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+        <div style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+          <span>🍃</span> <span>${escapeHtml(fileName || "Plant Leaf Photo")}</span>
+        </div>
+      </div>
     </div>
     <div class="gpt-avatar gpt-user-avatar">🧑‍🌾</div>
   `;

@@ -1960,6 +1960,26 @@ main {
   box-shadow: 0 4px 18px rgba(22, 163, 74, 0.15);
 }
 
+.btn-input-attach {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-input-attach:hover {
+  background: #ecfdf5;
+  color: #059669;
+}
+
 .btn-input-mic {
   background: transparent;
   border: none;

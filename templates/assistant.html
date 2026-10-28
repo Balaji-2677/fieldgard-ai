@@ -75,8 +75,14 @@
           Ask any farming question: crop diseases, optimal sowing dates, fertilizer balance, pest control, or government welfare subsidies.
         </p>
 
-        <!-- 4 Prompt Starter Cards -->
+        <!-- 5 Prompt Starter Cards -->
         <div class="prompt-cards-grid">
+          <div class="prompt-card prompt-card-doctor" onclick="document.getElementById('leaf-image-upload').click()" style="border-color: #10b981; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);">
+            <div class="card-icon">🔬</div>
+            <div class="card-title" style="color: #065f46;">Plant Doctor Diagnosis</div>
+            <div class="card-desc">Upload leaf photo for instant disease diagnosis &amp; ICAR organic cure</div>
+          </div>
+
           <div class="prompt-card" onclick="sendSuggestion('When is the optimal time to sow wheat in Punjab and UP?')">
             <div class="card-icon">🌾</div>
             <div class="card-title">Wheat Sowing Schedule</div>
@@ -116,6 +122,12 @@
     <div class="chatgpt-input-dock">
       <div class="input-box-container">
         
+        <!-- Plant Doctor Photo Upload & Camera Button -->
+        <input type="file" id="leaf-image-upload" accept="image/*" style="display: none;" onchange="handleLeafImageUpload(event)">
+        <button type="button" class="btn-input-attach" id="btn-input-attach" onclick="document.getElementById('leaf-image-upload').click()" title="Plant Doctor: Attach diseased leaf/crop photo for AI diagnosis">
+          📷
+        </button>
+
         <!-- Voice Input Microphone Button -->
         <button type="button" class="btn-input-mic" id="btn-input-mic" onclick="toggleVoiceInput()" title="Voice Input (Speak your question)">
           🎤

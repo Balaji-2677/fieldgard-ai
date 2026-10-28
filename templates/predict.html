@@ -161,6 +161,11 @@
           </div>
         </div>
 
+        <!-- 7-Day Weather Trend & Spray Advisory Box -->
+        <div id="spray-forecast-container" style="display: none; margin-bottom: 18px;">
+          <!-- Dynamically populated from /api/spray-forecast -->
+        </div>
+
         <!-- Weather Conditions -->
         <div class="form-row">
           <div class="form-group">
@@ -208,6 +213,17 @@
           <button type="submit" id="predict-submit-btn" class="btn btn-primary btn-lg" style="width: 100%;">
             🌾 Calculate Expected Yield & Advisory
           </button>
+        </div>
+
+        <!-- Plant Doctor Hint Banner -->
+        <div style="margin-top: 14px; background: #ecfdf5; border: 1px dashed #10b981; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <div style="font-size: 0.86rem; color: #065f46; display: flex; align-items: center; gap: 6px;">
+            <span>🍃</span>
+            <span><strong>Noticed spots, wilting or curled leaves?</strong> Diagnose plant disease instantly:</span>
+          </div>
+          <a href="{{ url_for('assistant_page') }}?mode=doctor" style="font-size: 0.84rem; font-weight: 700; color: #047857; text-decoration: underline;">
+            📷 Open Plant Doctor &rarr;
+          </a>
         </div>
       </form>
     </div>

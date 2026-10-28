@@ -127,9 +127,60 @@ document.addEventListener("DOMContentLoaded", () => {
 /**
  * Multi-Language Switcher for Indian Regional Languages
  */
+const HINDI_TRANSLATIONS = {
+  "Home": "होम",
+  "How to Use": "उपयोग विधि",
+  "Predict Yield": "उपज अनुमान",
+  "Farmer Dashboard": "किसान डैशबोर्ड",
+  "Admin Console": "व्यवस्थापक कंसोल",
+  "Analytics": "एनालिटिक्स",
+  "Kisan AI": "किसान एआई",
+  "About AI": "एआई परिचय",
+  "Helplines": "हेल्पलाइन",
+  "Logout": "लॉगआउट",
+  "Login": "लॉग इन",
+  "Register": "पंजीकरण",
+  "Calculate Expected Yield & Advisory": "🌾 अपेक्षित उपज और लाभ की गणना करें",
+  "Crop Yield Prediction & Farm Advisory": "🌾 फसल उपज अनुमान एवं फार्म सलाह",
+  "Predict Yield Now": "🌾 अब उपज का अनुमान लगाएं",
+  "Recent Predictions": "हाल के अनुमान",
+  "Total Predictions": "कुल अनुमान",
+  "Average Predicted Yield": "औसत अनुमानित उपज",
+  "Top Performing Crop": "शीर्ष प्रदर्शन वाली फसल",
+  "Highest Recorded Yield": "सर्वाधिक दर्ज उपज",
+  "What would you like to cultivate today?": "आज आप क्या उगाना चाहते हैं?",
+  "Wheat Sowing Schedule": "गेहूं बुवाई अनुसूची",
+  "Fertilizer Regimen": "उर्वरक मात्रा योजना",
+  "Pest & Disease Control": "कीट और रोग नियंत्रण",
+  "Agricultural Subsidies": "सरकारी कृषि योजनाएं",
+  "Plant Doctor Diagnosis": "प्लांट डॉक्टर रोग निदान"
+};
+
+function applyClientTranslations(lang) {
+  if (lang === "hi") {
+    document.querySelectorAll("a.nav-link span, h1, h2, h3, .card-title, button.btn-primary").forEach(el => {
+      const text = el.textContent.trim();
+      if (HINDI_TRANSLATIONS[text]) {
+        el.setAttribute("data-orig-text", text);
+        el.textContent = HINDI_TRANSLATIONS[text];
+      }
+    });
+  } else if (lang === "en") {
+    document.querySelectorAll("[data-orig-text]").forEach(el => {
+      el.textContent = el.getAttribute("data-orig-text");
+    });
+  }
+}
+
 function changeWebsiteLanguage(langCode) {
   if (!langCode) return;
   localStorage.setItem("cropyield_selected_lang", langCode);
+
+  // Sync session with backend
+  fetch(`/set-language/${langCode}`, { method: "GET" }).catch(() => {});
+
+  // Instant client-side text translation
+  applyClientTranslations(langCode);
 
   // Set Google Translate cookie
   const domain = window.location.hostname;
@@ -143,9 +194,6 @@ function changeWebsiteLanguage(langCode) {
   if (googleCombo) {
     googleCombo.value = langCode;
     googleCombo.dispatchEvent(new Event("change"));
-  } else {
-    // Reload if widget has not yet initialized
-    window.location.reload();
   }
 
   // Show friendly toast feedback
@@ -173,8 +221,9 @@ function changeWebsiteLanguage(langCode) {
 document.addEventListener("DOMContentLoaded", () => {
   const savedLang = localStorage.getItem("cropyield_selected_lang");
   const langSelect = document.getElementById("languageSelect");
-  if (savedLang && langSelect) {
-    langSelect.value = savedLang;
+  if (savedLang) {
+    if (langSelect) langSelect.value = savedLang;
+    applyClientTranslations(savedLang);
   }
 });
 

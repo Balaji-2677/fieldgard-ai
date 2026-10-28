@@ -598,6 +598,108 @@ class TestCropYieldApp(unittest.TestCase):
 
         print("   [Pesticide 25 Limit Test Passed] Successfully accepts up to 25.0 kg/ha and rejects > 25.0 kg/ha.")
 
+    def test_financial_roi_calculation(self):
+        """Test Financial Profit & Revenue ROI Calculator on prediction endpoint."""
+        payload = {
+            "farmer_name": "Finance Test Farmer",
+            "state": "Punjab",
+            "crop": "Wheat",
+            "season": "Rabi",
+            "soil_type": "Alluvial",
+            "area_ha": 2.0,
+            "rainfall_mm": 520,
+            "temp_c": 19.5,
+            "fertilizer_kg": 130,
+            "pesticide_kg": 1.4,
+        }
+        res = self.client.post("/api/predict", data=json.dumps(payload), content_type="application/json")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertIn("financials", data)
+        fin = data["financials"]
+        self.assertEqual(fin["crop"], "Wheat")
+        self.assertIn("gross_revenue_mandi", fin)
+        self.assertIn("total_cost", fin)
+        self.assertIn("net_profit", fin)
+        self.assertIn("profit_per_acre", fin)
+        self.assertIn("roi_percent", fin)
+        self.assertIn("profit_rating", fin)
+        self.assertGreater(fin["gross_revenue_mandi"], 0)
+        self.assertGreater(fin["total_cost"], 0)
+        print(f"   [Financial Profit Engine Test Passed] Revenue: {fin['formatted_gross_revenue']} | Profit: {fin['formatted_net_profit']} ({fin['formatted_profit_per_acre']}, ROI: {fin['roi_percent']}%)")
+
+    def test_spray_weather_advisory(self):
+        """Test 7-Day Weather Forecast & Spray Advisory endpoint."""
+        res = self.client.get("/api/spray-forecast?state=Punjab&district=Ludhiana")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertIn("forecast_days", data)
+        self.assertEqual(len(data["forecast_days"]), 7)
+        self.assertIn("spray_advisory", data)
+        adv = data["spray_advisory"]
+        self.assertIn("can_spray", adv)
+        self.assertIn("status", adv)
+        self.assertIn("headline", adv)
+        self.assertIn("best_window", adv)
+        print(f"   [Spray Advisory Test Passed] Location: {data['location']} | Status: {adv['status']} | Window: {adv['best_window']}")
+
+    def test_plant_doctor_leaf_diagnosis(self):
+        """Test Plant Doctor: Leaf Disease Photo Diagnosis endpoint."""
+        import io
+        dummy_image = io.BytesIO(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xbf\x00\xff\xd9")
+        data = {
+            "image": (dummy_image, "tomato_early_blight_leaf.jpg"),
+            "crop": "Tomato"
+        }
+        res = self.client.post("/api/diagnose-leaf", data=data, content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 200)
+        res_json = res.get_json()
+        self.assertTrue(res_json.get("success"))
+        self.assertIn("diagnosis", res_json)
+        diag = res_json["diagnosis"]
+        self.assertIn("disease_name", diag)
+        self.assertIn("organic_remedy", diag)
+        self.assertIn("chemical_remedy", diag)
+        self.assertIn("confidence_percent", diag)
+        print(f"   [Plant Doctor Test Passed] Diagnosed: {diag['disease_name']} ({diag['confidence_percent']}%) | Organic: {diag['organic_remedy'][:40]}...")
+
+    def test_market_intelligence_rates(self):
+        """Test Mandi market rates & Government MSP catalog endpoint."""
+        res = self.client.get("/api/market-rates")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("total_crops"), 32)
+        self.assertIn("Wheat", data["rates"])
+        self.assertIn("Rice", data["rates"])
+        self.assertIn("Cotton", data["rates"])
+
+        # Test single crop lookup
+        crop_res = self.client.get("/api/market-rates?crop=Rice")
+        self.assertEqual(crop_res.status_code, 200)
+        crop_data = crop_res.get_json()
+        self.assertTrue(crop_data.get("success"))
+        self.assertEqual(crop_data["crop"], "Rice")
+        self.assertGreater(crop_data["rate"]["msp_per_quintal"], 0)
+        print(f"   [Market Rates Test Passed] All 32 crops available with official MSP & Mandi benchmarks.")
+
+    def test_language_switch_endpoint(self):
+        """Test English / Hindi language switching route."""
+        # Switch to Hindi
+        res_hi = self.client.get("/set-language/hi?format=json")
+        self.assertEqual(res_hi.status_code, 200)
+        data_hi = res_hi.get_json()
+        self.assertEqual(data_hi.get("lang"), "hi")
+
+        # Switch to English
+        res_en = self.client.get("/set-language/en?format=json")
+        self.assertEqual(res_en.status_code, 200)
+        data_en = res_en.get_json()
+        self.assertEqual(data_en.get("lang"), "en")
+        print(f"   [Language Switch Test Passed] Successfully toggles session between English ('en') and Hindi ('hi').")
+
 
 if __name__ == "__main__":
     print("🌾 Running Crop Yield Application Test Suite (Including Dashboards & Permissions)...")

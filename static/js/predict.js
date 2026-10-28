@@ -353,6 +353,9 @@ async function fetchWeatherForSelection(stateOverride, seasonOverride, districtO
       if (statusText) statusText.textContent = "Live Weather Synced";
 
       showToast(`🌤️ Weather auto-synced for ${displayLoc}: ${data.temperature_c}°C & ${data.rainfall_mm} mm rain!`, "success");
+
+      // Auto-fetch 7-Day Forecast & Spray Advisory
+      loadSprayForecast(data.state, data.district);
     }
   } catch (err) {
     console.error("Error fetching weather:", err);
@@ -420,6 +423,9 @@ async function detectGPSWeather() {
           document.getElementById("weather-status-text").textContent = "GPS Weather Synced";
 
           showToast(`📍 GPS Location detected near ${locName}! Weather auto-synced.`, "success");
+
+          // Sync 7-day spray advisory for GPS location
+          loadSprayForecast(data.nearest_state, data.nearest_district);
         }
       } catch (err) {
         console.error("GPS Weather Error:", err);
@@ -488,6 +494,9 @@ function applyPreset(preset) {
   const tempBadge = document.getElementById("temp-auto-badge");
   if (rainBadge) rainBadge.style.display = "inline-block";
   if (tempBadge) tempBadge.style.display = "inline-block";
+
+  // Auto-sync spray advisory for preset location
+  loadSprayForecast(preset.state, preset.district);
 }
 
 async function handlePredictionSubmit() {
@@ -590,7 +599,7 @@ async function handlePredictionSubmit() {
       throw new Error(data.error || "Failed to calculate prediction");
     }
 
-    renderPredictionResult(data.analysis, payload);
+    renderPredictionResult(data.analysis, payload, data.financials);
     showToast(`🌾 Predicted Yield: ${data.predicted_yield_t_ha} tonnes/hectare`, "success");
 
     // Smooth scroll to result on mobile
@@ -606,7 +615,7 @@ async function handlePredictionSubmit() {
   }
 }
 
-function renderPredictionResult(analysis, inputData) {
+function renderPredictionResult(analysis, inputData, financials) {
   const container = document.getElementById("result-container");
   if (!container) return;
 
@@ -627,6 +636,8 @@ function renderPredictionResult(analysis, inputData) {
   const tipsHtml = analysis.expert_tips
     .map((tip) => `<li><span>💡</span> <span>${tip}</span></li>`)
     .join("");
+
+  const whatsappUrl = generateWhatsAppShareLink(analysis, inputData, financials);
 
   container.innerHTML = `
     <div class="result-card">
@@ -659,6 +670,9 @@ function renderPredictionResult(analysis, inputData) {
           </div>
         </div>
 
+        <!-- Financial Profit & Revenue ROI Card -->
+        ${renderFinancialsHtml(financials)}
+
         ${renderCropSuggestionHtml(analysis.suggested_alternative_crop, analysis, inputData)}
 
         <div style="margin-bottom: 16px; font-size: 0.9rem; color: #374151;">
@@ -681,13 +695,22 @@ function renderPredictionResult(analysis, inputData) {
           </ul>
         </div>
 
-        <div class="result-actions">
-          <button class="btn btn-outline btn-sm" onclick="window.print()" style="flex: 1;">
-            🖨️ Print Farmer Yield Card
-          </button>
-          <a href="/dashboard" class="btn btn-primary btn-sm" style="flex: 1;">
-            📊 View History & Analytics
+        <!-- 1-Click WhatsApp Share & Action Buttons -->
+        <div class="result-actions" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+          <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp" style="background: #25D366; color: #ffffff; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 16px; font-size: 0.96rem; text-decoration: none; border-radius: 8px; box-shadow: 0 4px 14px rgba(37, 211, 102, 0.4); border: none;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+            </svg>
+            <span>📲 Share Farm Yield & Profit on WhatsApp</span>
           </a>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm" onclick="window.print()" style="flex: 1;">
+              🖨️ Print Farmer Yield Card
+            </button>
+            <a href="/dashboard" class="btn btn-primary btn-sm" style="flex: 1;">
+              📊 View History & Analytics
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -764,5 +787,171 @@ function switchToSuggestedCrop(cropName) {
       handlePredictionSubmit();
     }, 350);
   }
+}
+
+/* ==========================================================================
+   💰 Financial Profit & Revenue ROI Engine
+   ========================================================================== */
+
+function renderFinancialsHtml(fin) {
+  if (!fin) return "";
+  const isProfit = fin.net_profit >= 0;
+  const profitColor = isProfit ? "#15803d" : "#b91c1c";
+  const bgGrad = isProfit ? "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)" : "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)";
+  const borderCol = isProfit ? "#86efac" : "#fca5a5";
+
+  return `
+    <div class="financial-profit-card" style="margin-bottom: 20px; background: ${bgGrad}; border: 1.5px solid ${borderCol}; border-radius: var(--radius-md); padding: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.4rem;">💰</span>
+          <span style="font-weight: 800; font-size: 0.95rem; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">
+            Financial Profit & Revenue ROI Forecast
+          </span>
+        </div>
+        <span style="background: ${profitColor}; color: white; font-weight: 700; font-size: 0.75rem; padding: 3px 10px; border-radius: 12px;">
+          ${fin.profit_rating}
+        </span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px;">
+        <div style="background: white; border-radius: 8px; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.06);">
+          <div style="font-size: 0.72rem; color: #6b7280; text-transform: uppercase; font-weight: 600;">Gross Mandi Revenue</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #1f2937;">${fin.formatted_gross_revenue}</div>
+          <div style="font-size: 0.7rem; color: #9ca3af;">@ ₹${fin.mandi_rate_quintal}/qtl</div>
+        </div>
+        <div style="background: white; border-radius: 8px; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.06);">
+          <div style="font-size: 0.72rem; color: #6b7280; text-transform: uppercase; font-weight: 600;">Total Input Cost</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #dc2626;">${fin.formatted_total_cost}</div>
+          <div style="font-size: 0.7rem; color: #9ca3af;">Seed, Fert, Labor</div>
+        </div>
+        <div style="background: white; border-radius: 8px; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.06);">
+          <div style="font-size: 0.72rem; color: #6b7280; text-transform: uppercase; font-weight: 600;">Net Farmer Profit</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: ${profitColor};">${fin.formatted_net_profit}</div>
+          <div style="font-size: 0.7rem; color: #15803d; font-weight: 600;">${fin.formatted_profit_per_acre}</div>
+        </div>
+        <div style="background: white; border-radius: 8px; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.06);">
+          <div style="font-size: 0.72rem; color: #6b7280; text-transform: uppercase; font-weight: 600;">Return on Capital (ROI)</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: #2563eb;">${fin.roi_percent}%</div>
+          <div style="font-size: 0.7rem; color: #6b7280;">Govt MSP: ₹${fin.msp_rate_quintal}/qtl</div>
+        </div>
+      </div>
+
+      <div style="font-size: 0.78rem; color: #4b5563; background: rgba(255,255,255,0.85); padding: 8px 12px; border-radius: 6px;">
+        🏛️ <strong>MSP Safety Net:</strong> Assured ₹${fin.gross_revenue_msp.toLocaleString('en-IN')} revenue at Government MSP (₹${fin.msp_rate_quintal}/quintal) ensures guaranteed floor returns.
+      </div>
+    </div>
+  `;
+}
+
+/* ==========================================================================
+   📲 1-Click WhatsApp Share Generator
+   ========================================================================== */
+
+function generateWhatsAppShareLink(analysis, inputData, financials) {
+  const farmer = inputData.farmer_name || "Farmer";
+  const loc = inputData.district ? `${inputData.district}, ${inputData.state}` : inputData.state;
+  const profitStr = financials ? `💰 *Estimated Net Profit:* ${financials.formatted_net_profit} (${financials.formatted_profit_per_acre}, ROI: ${financials.roi_percent}%)\n💵 *Gross Mandi Revenue:* ${financials.formatted_gross_revenue}\n` : "";
+  const tip = analysis.expert_tips && analysis.expert_tips.length > 0 ? analysis.expert_tips[0] : "Maintain balanced soil nutrition.";
+
+  const text = 
+`🌾 *Crop Yield & Farm Profit Advisory - CropYield AI*
+👨‍🌾 *Farmer:* ${farmer}
+📍 *Location:* ${loc}
+🌱 *Crop:* ${analysis.crop} (${inputData.season} Season)
+📊 *Estimated Yield:* ${analysis.predicted_yield_t_ha} Tonnes/Ha (~ ${analysis.predicted_yield_q_acre} Quintals/Acre)
+🚜 *Total Harvest:* ${analysis.total_production_tonnes} Tonnes (${inputData.area_ha} Ha)
+${profitStr}✨ *Status:* ${analysis.status} (${analysis.ratio_vs_benchmark}% of regional benchmark)
+💡 *Agronomist Tip:* ${tip}
+
+📲 Calculated on CropYield AI Platform (Govt ICAR Calibrated)
+Check your farm yield: https://cropyieldai.in`;
+
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+}
+
+/* ==========================================================================
+   🌦️ 7-Day Meteorological Weather Forecast & Spray Advisory Widget
+   ========================================================================== */
+
+async function loadSprayForecast(state, district) {
+  const container = document.getElementById("spray-forecast-container");
+  if (!container || !state) return;
+
+  try {
+    const res = await fetch(`/api/spray-forecast?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district || "")}`);
+    const data = await res.json();
+    if (data.success) {
+      renderSprayAdvisoryWidget(data);
+    }
+  } catch (err) {
+    console.error("Error loading spray forecast:", err);
+  }
+}
+
+function renderSprayAdvisoryWidget(data) {
+  const container = document.getElementById("spray-forecast-container");
+  if (!container) return;
+
+  const adv = data.spray_advisory;
+  const badgeClass = adv.badge_color === "success" ? "background: #dcfce7; color: #166534; border: 1px solid #86efac;" : adv.badge_color === "warning" ? "background: #fef3c7; color: #92400e; border: 1px solid #fde68a;" : "background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;";
+
+  const dayCardsHtml = (data.forecast_days || []).map((day) => {
+    const tagBg = day.spray_class === "success" ? "#dcfce7" : day.spray_class === "warning" ? "#fef3c7" : "#fee2e2";
+    const tagColor = day.spray_class === "success" ? "#166534" : day.spray_class === "warning" ? "#92400e" : "#991b1b";
+
+    return `
+      <div style="flex: 1; min-width: 85px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 6px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #374151;">${day.day_name}</div>
+        <div style="font-size: 1.3rem; margin: 2px 0;">${day.icon}</div>
+        <div style="font-size: 0.78rem; font-weight: 700; color: #111827;">${day.temp_max}° / ${day.temp_min}°</div>
+        <div style="font-size: 0.68rem; color: #0284c7;">🌧️ ${day.precipitation_sum}mm</div>
+        <div style="font-size: 0.68rem; color: #6b7280;">💨 ${day.windspeed_max}km/h</div>
+        <div style="margin-top: 4px; font-size: 0.62rem; font-weight: 700; background: ${tagBg}; color: ${tagColor}; padding: 2px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          ${day.spray_status}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const reasonsHtml = (adv.reasons || []).map(r => `<li>${r}</li>`).join("");
+
+  container.innerHTML = `
+    <div style="background: #ffffff; border: 1.5px solid #0284c7; border-radius: var(--radius-md); padding: 16px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.1);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.3rem;">🌦️</span>
+          <div>
+            <span style="font-weight: 800; font-size: 0.92rem; color: #0369a1; text-transform: uppercase;">
+              7-Day Weather & Spray Advisory
+            </span>
+            <span style="font-size: 0.78rem; color: #6b7280; margin-left: 6px;">(${data.location})</span>
+          </div>
+        </div>
+        <span style="font-weight: 800; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; ${badgeClass}">
+          ${adv.status}
+        </span>
+      </div>
+
+      <!-- Spray status headline & timing -->
+      <div style="background: #f8fafc; border-left: 4px solid #0284c7; padding: 10px 12px; border-radius: 0 6px 6px 0; margin-bottom: 12px;">
+        <div style="font-size: 0.88rem; font-weight: 700; color: #0f172a;">
+          ${adv.headline}
+        </div>
+        <div style="font-size: 0.8rem; color: #475569; margin-top: 3px;">
+          ⏰ <strong>Recommended Spray Hours:</strong> ${adv.best_window}
+        </div>
+        <ul style="font-size: 0.78rem; color: #64748b; margin: 6px 0 0 16px; padding: 0;">
+          ${reasonsHtml}
+        </ul>
+      </div>
+
+      <!-- 7-Day Daily Forecast Cards Strip -->
+      <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;">
+        ${dayCardsHtml}
+      </div>
+    </div>
+  `;
+  container.style.display = "block";
 }
 

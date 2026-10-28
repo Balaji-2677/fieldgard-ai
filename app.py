@@ -3,6 +3,7 @@ Crop Yield Prediction Web Application
 Production-grade Flask server with ML pipeline inference, SQLite history, and farmer advisory.
 """
 
+import base64
 import csv
 import io
 import json
@@ -44,7 +45,9 @@ import database
 from ml.agronomy_engine import analyze_crop_prediction, AGRONOMIC_KNOWLEDGE
 from ml.ai_assistant import answer_farming_doubt
 from ml.district_data import STATE_DISTRICTS, get_districts_for_state, get_district_coords
-from ml.weather_service import get_weather_for_state, get_weather_by_coords
+from ml.weather_service import get_weather_for_state, get_weather_by_coords, get_7day_forecast_and_spray_advisory
+from ml.market_service import calculate_crop_financials, get_crop_market_rate, CROP_MARKET_RATES
+from ml.disease_detector import diagnose_leaf_image, get_all_diseases_catalog
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get(
@@ -97,6 +100,26 @@ def load_ml_resources():
 # Initialize Database and ML resources on startup
 database.init_db()
 load_ml_resources()
+
+
+@app.context_processor
+def inject_app_context():
+    """Inject language preference and global site metrics across all templates."""
+    return {
+        "current_lang": session.get("lang", "en"),
+        "available_languages": [("en", "English"), ("hi", "हिंदी")]
+    }
+
+
+@app.route("/set-language/<lang>")
+def set_language(lang):
+    """Switch active language between English ('en') and Hindi ('hi')."""
+    if lang in ["en", "hi"]:
+        session["lang"] = lang
+    if request.is_json or request.args.get("format") == "json":
+        return jsonify({"success": True, "lang": session.get("lang", "en")})
+    ref = request.referrer
+    return redirect(ref if ref else url_for("index"))
 
 
 def login_required(f):
@@ -655,6 +678,13 @@ def api_predict():
         }
         saved_id = database.save_prediction(db_record, user_id=user_id)
 
+        # Calculate Financial Profit & Market ROI
+        financials = calculate_crop_financials(
+            crop_name=crop,
+            predicted_yield_t_ha=predicted_yield,
+            area_ha=area_ha
+        )
+
         return jsonify({
             "success": True,
             "prediction": predicted_yield,
@@ -666,6 +696,7 @@ def api_predict():
             "district": district,
             "analysis": agri_analysis,
             "suggested_alternative_crop": agri_analysis.get("suggested_alternative_crop"),
+            "financials": financials,
         })
     except Exception as e:
         return jsonify({"success": False, "error": f"Prediction failed: {str(e)}"}), 500
@@ -736,6 +767,97 @@ def api_crop_defaults(crop_name):
         "area_ha": 2.5
     }
     return jsonify({"success": True, "defaults": defaults})
+
+
+@app.route("/api/spray-forecast", methods=["GET", "POST"])
+def api_spray_forecast():
+    """
+    7-Day Meteorological Weather Forecast & Actionable Agricultural Spray Advisory.
+    Evaluates rainfall, wind velocity, and ambient temperatures to advise farmers
+    on the safest spray timing for pesticides and fertilizers without drift or rain washout.
+    """
+    data = request.get_json(silent=True) or request.args.to_dict() or {}
+    state = data.get("state", "").strip() or "Punjab"
+    district = data.get("district", "").strip() or None
+    lat = data.get("lat")
+    lon = data.get("lon")
+
+    lat_val = float(lat) if lat is not None and str(lat).strip() != "" else None
+    lon_val = float(lon) if lon is not None and str(lon).strip() != "" else None
+
+    forecast_data = get_7day_forecast_and_spray_advisory(
+        state=state,
+        district=district,
+        lat=lat_val,
+        lon=lon_val
+    )
+    return jsonify(forecast_data)
+
+
+@app.route("/api/diagnose-leaf", methods=["POST"])
+def api_diagnose_leaf():
+    """
+    Plant Doctor: Leaf Disease Photo Diagnosis Endpoint.
+    Accepts multipart image upload ('image' or 'file') or base64 payload.
+    Returns disease classification, ICAR biological/organic remedies, chemical dosages, and prevention tips.
+    """
+    try:
+        user_crop = request.form.get("crop", "").strip() or None
+        filename = "leaf_upload.jpg"
+        mime_type = "image/jpeg"
+        image_bytes = None
+
+        # 1. Check file in multipart form-data
+        file = request.files.get("image") or request.files.get("file")
+        if file and file.filename:
+            filename = file.filename
+            mime_type = file.mimetype or mime_type
+            image_bytes = file.read()
+        else:
+            # 2. Check JSON payload with base64 encoded image
+            data = request.get_json(silent=True) or {}
+            if "crop" in data:
+                user_crop = str(data.get("crop", "")).strip() or None
+            b64_str = data.get("image_base64") or data.get("image")
+            if b64_str:
+                if "," in b64_str:
+                    header, b64_str = b64_str.split(",", 1)
+                    if "image/png" in header:
+                        mime_type = "image/png"
+                    elif "image/webp" in header:
+                        mime_type = "image/webp"
+                image_bytes = base64.b64decode(b64_str)
+                filename = data.get("filename", "leaf_upload.jpg")
+
+        if not image_bytes:
+            return jsonify({
+                "success": False,
+                "error": "No leaf photo provided. Please upload a clear photo of the diseased leaf or plant."
+            }), 400
+
+        diagnosis = diagnose_leaf_image(
+            image_bytes=image_bytes,
+            filename=filename,
+            mime_type=mime_type,
+            user_crop=user_crop
+        )
+        return jsonify({"success": True, "diagnosis": diagnosis})
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Disease diagnosis failed: {str(e)}"}), 500
+
+
+@app.route("/api/market-rates", methods=["GET"])
+def api_market_rates():
+    """Official Government MSP benchmarks & Mandi wholesale market prices for all 32 crops."""
+    crop = request.args.get("crop", "").strip()
+    if crop:
+        rate = get_crop_market_rate(crop)
+        return jsonify({"success": True, "crop": crop, "rate": rate})
+    return jsonify({
+        "success": True,
+        "total_crops": len(CROP_MARKET_RATES),
+        "rates": CROP_MARKET_RATES
+    })
 
 
 if __name__ == "__main__":
